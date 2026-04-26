@@ -11,28 +11,66 @@ class ProductServiceError extends Error {
 
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-const toProductCard = (product) => ({
-	id: product._id,
-	medicineCode: product.medicineCode,
-	productName: product.productName,
-	price: product.price,
-	categoryId: product.categoryId,
-	categoryName: product.categoryName,
-	images: product.images || '',
-	isActive: Boolean(product.isActive),
-})
+const toProductCard = (product) => {
+	let price = 0
+	if (product.sellUnits && product.defaultSellUnit) {
+		const unitData = product.sellUnits instanceof Map 
+			? product.sellUnits.get(product.defaultSellUnit)
+			: product.sellUnits[product.defaultSellUnit]
+		if (unitData) price = unitData.price
+	} else if (product.price) {
+		price = product.price
+	}
+
+	let firstImage = ''
+	if (Array.isArray(product.images) && product.images.length > 0) {
+		firstImage = product.images[0]
+	} else if (typeof product.images === 'string') {
+		firstImage = product.images
+	}
+
+	return {
+		id: product._id,
+		medicineCode: product.medicineCode,
+		productName: product.productName,
+		price: price,
+		categoryId: product.categoryId,
+		categoryName: product.categoryName,
+		images: firstImage,
+		isActive: Boolean(product.isActive),
+		defaultSellUnit: product.defaultSellUnit || 'hộp',
+		totalStock: product.totalBaseQuantity || 0
+	}
+}
 
 const toAiSearchItem = (product) => {
-	const totalStock = Array.isArray(product.inventory)
-		? product.inventory.reduce((sum, batch) => sum + Number(batch.quantity || 0), 0)
-		: 0
+	const totalStock = product.totalBaseQuantity || (Array.isArray(product.inventory)
+		? product.inventory.reduce((sum, batch) => sum + Number(batch.baseQuantity || batch.quantity || 0), 0)
+		: 0)
+
+	let price = 0
+	if (product.sellUnits && product.defaultSellUnit) {
+		const unitData = product.sellUnits instanceof Map 
+			? product.sellUnits.get(product.defaultSellUnit)
+			: product.sellUnits[product.defaultSellUnit]
+		if (unitData) price = unitData.price
+	} else if (product.price) {
+		price = product.price
+	}
+
+	let firstImage = ''
+	if (Array.isArray(product.images) && product.images.length > 0) {
+		firstImage = product.images[0]
+	} else if (typeof product.images === 'string') {
+		firstImage = product.images
+	}
 
 	return {
 		id: String(product._id),
 		name: product.productName || product.medicineName || '',
-		price: Number(product.price || 0),
+		price: Number(price || 0),
 		shortDescription: String(product.usageSummary || product.description || '').trim(),
-		image: String(product.images || '').trim(),
+		image: firstImage,
 		totalStock,
 	}
 }
@@ -59,7 +97,7 @@ const findProductByKeyword = async (keyword, { limit = 5 } = {}) => {
 			{ additionalInfo: regex },
 		],
 	})
-		.select('_id productName medicineName price usageSummary description images inventory')
+		.select('_id productName medicineName usageSummary description images inventory sellUnits defaultSellUnit totalBaseQuantity price')
 		.sort({ updatedAt: -1 })
 		.limit(safeLimit)
 		.lean()
@@ -146,13 +184,15 @@ const getProducts = async ({ categoryId, search, page = 1, limit = 20 }) => {
 	const [items, total] = await Promise.all([
 		isGetAll
 			? Product.find(filter)
-					.select('_id medicineCode productName price categoryId categoryName images isActive')
+					.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price')
 					.sort({ createdAt: -1 })
+					.lean()
 			: Product.find(filter)
-					.select('_id medicineCode productName price categoryId categoryName images isActive')
+					.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price')
 					.sort({ createdAt: -1 })
 					.skip(skip)
-					.limit(numericLimit),
+					.limit(numericLimit)
+					.lean(),
 		Product.countDocuments(filter),
 	])
 

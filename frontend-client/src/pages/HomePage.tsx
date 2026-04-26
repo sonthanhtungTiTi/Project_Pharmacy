@@ -187,7 +187,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOp
 					categoryData.map(async (category) => {
 						const data = await getProducts({
 							categoryId: category._id,
-							limit: 4,
+							limit: 10,
 						})
 
 						return {
@@ -284,8 +284,8 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOp
 
 			<div className="grid grid-cols-1 gap-3 rounded-2xl bg-white p-3 shadow-sm md:grid-cols-2">
 				{heroBanners.map((banner, index) => (
-					<article 
-						key={banner.image} 
+					<article
+						key={banner.image}
 						className="relative min-h-[184px] cursor-pointer overflow-hidden rounded-xl transition-transform hover:scale-[1.01]"
 						onClick={() => goTo(banner.href)}
 					>
@@ -313,6 +313,82 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOp
 				</div>
 			</div>
 
+			<div className="my-2 flex flex-col overflow-hidden bg-[#e9f9ee] md:rounded-2xl md:flex-row shadow-sm">
+				<a className="flex justify-start overflow-hidden bg-[#e9f9ee] md:w-[35%]" href="/kiem-tra-suc-khoe">
+					<div className="relative h-[229px] w-full overflow-hidden">
+						<img
+							alt="Health Check Banner"
+							loading="lazy"
+							className="h-full w-full object-cover transition-opacity duration-300"
+							src="https://cdnv2-tmdt.tgdd.vn/webmwg/production-fe/ankhang/public/static/images/health-check-banner.png"
+						/>
+					</div>
+				</a>
+				<div className="flex items-center bg-[#e9f9ee] py-5 md:p-5 lg:flex-1">
+					<div className="relative mx-auto w-full">
+						<div className="overflow-hidden">
+							<div className="flex w-full gap-4 overflow-x-auto pb-2 px-4 snap-x">
+								<div className="flex-none w-[180px] snap-start">
+									<a className="flex h-[189px] flex-col items-center gap-2 rounded-[20px] bg-white px-2 py-4 shadow-sm hover:shadow-md transition-shadow" href="/kiem-tra-suc-khoe/tam-soat-hen">
+										<div className="flex shrink-0 items-center justify-center rounded-xl bg-white">
+											<div className="relative h-[65px] w-[65px] overflow-hidden">
+												<img alt="Nguy cơ mắc bệnh hen" loading="lazy" className="object-contain" src="https://cdnv2.tgdd.vn/pim/cdn/images/202510/icon-Hen132831.png" style={{ width: '65px', height: '65px' }} />
+											</div>
+										</div>
+										<div className="flex flex-col items-center gap-1 text-center">
+											<div className="text-sm font-bold text-[#1f9542]">Kiểm tra</div>
+											<div className="text-sm text-slate-700">Nguy cơ mắc bệnh hen</div>
+										</div>
+									</a>
+								</div>
+
+								<div className="flex-none w-[180px] snap-start">
+									<a className="flex h-[189px] flex-col items-center gap-2 rounded-[20px] bg-white px-2 py-4 shadow-sm hover:shadow-md transition-shadow" href="/kiem-tra-suc-khoe/tam-soat-benh-phoi-tac-nghen-man-tinh">
+										<div className="flex shrink-0 items-center justify-center rounded-xl bg-white">
+											<div className="relative h-[65px] w-[65px] overflow-hidden">
+												<img alt="Nguy cơ mắc bệnh phổi tắc nghẽn mạn tính (COPD)" loading="lazy" className="object-contain" src="https://cdnv2.tgdd.vn/pim/cdn/images/202510/icon-Hen-1132812.png" style={{ width: '65px', height: '65px' }} />
+											</div>
+										</div>
+										<div className="flex flex-col items-center gap-1 text-center">
+											<div className="text-sm font-bold text-[#1f9542]">Kiểm tra</div>
+											<div className="text-sm text-slate-700">Nguy cơ mắc bệnh phổi tắc nghẽn mạn tính (COPD)</div>
+										</div>
+									</a>
+								</div>
+
+								<div className="flex-none w-[180px] snap-start">
+									<a className="flex h-[189px] flex-col items-center gap-2 rounded-[20px] bg-white px-2 py-4 shadow-sm hover:shadow-md transition-shadow" href="/kiem-tra-suc-khoe/danh-gia-nguy-co-lam-dung-thuoc-cat-con-hen">
+										<div className="flex shrink-0 items-center justify-center rounded-xl bg-white">
+											<div className="relative h-[65px] w-[65px] overflow-hidden">
+												<img alt="Nguy cơ lạm dụng thuốc cắt cơn hen và COPD" loading="lazy" className="object-contain" src="https://cdnv2.tgdd.vn/pim/cdn/images/202510/icon-Hen-2132928.png" style={{ width: '65px', height: '65px' }} />
+											</div>
+										</div>
+										<div className="flex flex-col items-center gap-1 text-center">
+											<div className="text-sm font-bold text-[#1f9542]">Kiểm tra</div>
+											<div className="text-sm text-slate-700">Nguy cơ lạm dụng thuốc cắt cơn hen và COPD</div>
+										</div>
+									</a>
+								</div>
+
+								<div className="flex-none w-[180px] snap-start">
+									<a className="flex h-[189px] flex-col items-center gap-2 rounded-[20px] bg-white px-2 py-4 shadow-sm hover:shadow-md transition-shadow" href="/kiem-tra-suc-khoe/danh-gia-nguy-co-trao-nguoc-da-day-thuc-quan">
+										<div className="flex shrink-0 items-center justify-center rounded-xl bg-white">
+											<div className="relative h-[65px] w-[65px] overflow-hidden">
+												<img alt="Nguy cơ trào ngược dạ dày, thực quản (GERD)" loading="lazy" className="object-contain" src="https://cdnv2.tgdd.vn/pim/cdn/images/202510/icon-Hen-3132937.png" style={{ width: '65px', height: '65px' }} />
+											</div>
+										</div>
+										<div className="flex flex-col items-center gap-1 text-center">
+											<div className="text-sm font-bold text-[#1f9542]">Kiểm tra</div>
+											<div className="text-sm text-slate-700">Nguy cơ trào ngược dạ dày, thực quản (GERD)</div>
+										</div>
+									</a>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
 			{isLoadingProducts && (
 				<section className="rounded-2xl bg-white p-4 shadow-sm">
 					<p className="py-2 text-sm text-slate-600">Dang tai san pham...</p>
@@ -325,74 +401,78 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOp
 				</section>
 			)}
 
-			{!isLoadingProducts && !productError && sections.length === 0 && (
-				<section className="rounded-2xl bg-white p-4 shadow-sm">
-					<p className="py-2 text-sm text-slate-600">Chua co san pham theo danh muc.</p>
-				</section>
-			)}
+
 
 			{!isLoadingProducts && !productError && sections.length > 0 && (
-				<div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_150px]">
+				<div className="grid grid-cols-1 gap-3">
 					<div className="space-y-4">
-						{sections.map((section) => (
-							<section
-								id={`category-section-${section.category._id}`}
-								key={section.category._id}
-								className="overflow-hidden rounded-2xl bg-white shadow-sm"
-							>
-							<div className="flex items-center justify-between bg-[#35b548] px-5 py-4 text-white">
-								<h3 className="text-xl font-extrabold uppercase tracking-wide">{section.category.categoryName}</h3>
-								<button
-									type="button"
-									onClick={() => openCategoryPage(section.category._id)}
-									className="font-semibold text-white/90 hover:text-white"
+						{sections.map((section, index) => (
+							<div key={section.category._id} className="space-y-4">
+								<section
+									id={`category-section-${section.category._id}`}
+									className="overflow-hidden rounded-2xl bg-white shadow-sm"
 								>
-									Xem tat ca
-								</button>
-							</div>
+									<div className="flex items-center justify-between bg-[#35b548] px-5 py-4 text-white">
+										<h3 className="text-xl font-extrabold uppercase tracking-wide">{section.category.categoryName}</h3>
+										<button
+											type="button"
+											onClick={() => openCategoryPage(section.category._id)}
+											className="font-semibold text-white/90 hover:text-white"
+										>
+											Xem tat ca
+										</button>
+									</div>
 
-							<div className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
-								{section.products.map((item) => {
-									const meta = buildCardMeta(item)
+									<div className="flex gap-3 overflow-x-auto p-4 pb-6 snap-x snap-mandatory">
+										{section.products.map((item) => {
+											const meta = buildCardMeta(item)
 
-									return (
-										<ProductCard
-											key={item.id}
-											productCode={item.medicineCode}
-											productId={item.id}
-											name={item.productName}
-											imageUrl={meta.imageUrl}
-											price={item.price}
-											originalPrice={meta.originalPrice}
-											sale={meta.discountLabel}
-											soldCount={meta.soldCount}
-											totalCount={meta.totalCount}
-											onViewDetail={onOpenProductDetail}
+											return (
+												<div key={item.id} className="w-[200px] flex-none snap-start md:w-[220px] lg:w-[240px]">
+													<ProductCard
+														productCode={item.medicineCode}
+														productId={item.id}
+														name={item.productName}
+														imageUrl={meta.imageUrl}
+														price={item.price}
+														originalPrice={meta.originalPrice}
+														sale={meta.discountLabel}
+														soldCount={meta.soldCount}
+														totalCount={meta.totalCount}
+														onViewDetail={onOpenProductDetail}
+													/>
+												</div>
+											)
+										})}
+
+										<div className="flex w-[150px] flex-none snap-start items-center justify-center py-4 pr-4">
+											<button
+												type="button"
+												onClick={() => openCategoryPage(section.category._id)}
+												className="flex h-[150px] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#35b548] text-[#35b548] transition hover:bg-[#f4faf4]"
+											>
+												<span className="text-3xl leading-none">+</span>
+												<span className="mt-2 text-sm font-semibold">Xem thêm</span>
+											</button>
+										</div>
+									</div>
+								</section>
+								{index < 1 && (
+									<div className="overflow-hidden rounded-2xl shadow-sm">
+										<img
+											alt="Khuyến mãi"
+											loading="lazy"
+											className="w-full object-contain transition-opacity duration-300"
+											src="https://cdnv2-tmdt.tgdd.vn/webmwg/production-fe/ankhang/public/static/images/bg_footer.png"
 										/>
-									)
-								})}
+									</div>
+								)}
+
 							</div>
-							</section>
 						))}
 					</div>
 
-					<aside className="hidden self-start xl:sticky xl:top-24 xl:block">
-						<div className="rounded-xl border border-[#cce9cf] bg-white p-2.5 shadow-sm">
-							<p className="text-xs font-bold text-[#2f6d39]">Danh muc nhanh</p>
-							<div className="mt-2 flex flex-col gap-1.5">
-								{sections.slice(0, 11).map((section) => (
-									<button
-										key={`menu-${section.category._id}`}
-										type="button"
-										onClick={() => scrollToCategorySection(section.category._id)}
-										className="rounded-md border border-[#bfe8c3] bg-[#f9fff9] px-2 py-1.5 text-left text-[11px] font-semibold text-[#2f6d39] transition hover:bg-[#ecffef]"
-									>
-										<span className="line-clamp-2">{section.category.categoryName}</span>
-									</button>
-								))}
-							</div>
-						</div>
-					</aside>
+
 				</div>
 			)}
 

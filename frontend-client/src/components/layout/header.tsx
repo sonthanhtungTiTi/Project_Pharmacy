@@ -89,8 +89,8 @@ function Header({
 	}, [])
 
 	return (
-		<header className="relative z-[988] w-full bg-white">
-			<div className="bg-[#22b245]">
+		<>
+			<div className="bg-[#22b245] w-full relative z-[988]">
 				<div className="overflow-hidden">
 					<div
 						className="flex w-full transition-transform duration-700 ease-in-out"
@@ -116,7 +116,7 @@ function Header({
 				</div>
 			</div>
 
-			<div className="sticky top-0 z-[989] bg-[#2eaf42] text-white shadow-[0_6px_18px_rgba(12,90,31,0.2)]">
+			<header className="sticky top-0 z-[989] w-full bg-[#2eaf42] text-white shadow-[0_6px_18px_rgba(12,90,31,0.2)]">
 				<div className="mx-auto max-w-[1200px] px-4">
 					<div className="flex items-center justify-between pt-4">
 					<div className="flex items-center gap-2 text-sm">
@@ -230,8 +230,8 @@ function Header({
 						)}
 					</div>
 				</div>
-			</div>
-		</header>
+			</header>
+		</>
 	)
 }
 
