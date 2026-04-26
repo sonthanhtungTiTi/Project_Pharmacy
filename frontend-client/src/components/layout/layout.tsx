@@ -118,7 +118,7 @@ function PharmacyLayout({
 						<section className="space-y-4">{children}</section>
 					) : (
 						<div className="grid grid-cols-1 gap-4 lg:grid-cols-[250px_1fr]">
-							<aside className="rounded-2xl bg-white p-4 shadow-sm">
+							<aside className="self-start rounded-2xl bg-white p-4 shadow-sm lg:sticky lg:top-[120px] max-h-[calc(100vh-140px)] overflow-y-auto">
 								<h2 className="mb-4 text-lg font-bold text-[#23a840]">Danh muc</h2>
 								{onSelectAllCategories && (
 									<button
