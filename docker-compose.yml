@@ -1,0 +1,16 @@
+services:
+  peer-server:
+    image: peerjs/peerjs-server:latest
+    container_name: pharmacy-peer-server
+    command:
+      - --port
+      - "9000"
+      - --path
+      - /myapp
+      - --key
+      - pharmacy-peer
+      - --allow_discovery
+      - "true"
+    ports:
+      - "9000:9000"
+    restart: unless-stopped

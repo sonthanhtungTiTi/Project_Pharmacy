@@ -1,0 +1,33 @@
+const express = require('express')
+
+const authRoutes = require('./auth.route')
+const cartRoutes = require('./cart.route')
+const addressRoutes = require('./address.route')
+const orderRoutes = require('./order.route')
+const categoryRoutes = require('./category.route')
+const productRoutes = require('./product.route')
+const healthNewsRoutes = require('./healthNews.route')
+const momoRoutes = require('./momo.route')
+const vnpayRoutes = require('./vnpay.route')
+const consultationRoutes = require('./consultation.route')
+const staffRoutes = require('./staff.route')
+const chatRoutes = require('./chat.route')
+
+const router = express.Router()
+
+router.use('/auth', authRoutes)
+router.use('/cart', cartRoutes)
+router.use('/addresses', addressRoutes)
+router.use('/order', orderRoutes)
+router.use('/orders', orderRoutes)
+router.use('/categories', categoryRoutes)
+router.use('/products', productRoutes)
+router.use('/medicines', productRoutes)
+router.use('/health-news', healthNewsRoutes)
+router.use('/momo', momoRoutes)
+router.use('/vnpay', vnpayRoutes)
+router.use('/consultations', consultationRoutes)
+router.use('/staff', staffRoutes)
+router.use('/chat', chatRoutes)
+
+module.exports = router

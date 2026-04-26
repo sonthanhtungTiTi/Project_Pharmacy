@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+out/
+.next/
+
+# Environment files
+.env
+.env.*
+! .env.example
+**/.env
+**/.env.*
+**/! .env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Security and sensitive data
+*.pem
+*.key
+certs/
+secrets/
+client_secret_*.apps.googleusercontent.com.json
+
+# Project specific ignores
+backend/node_modules/
+backend/.env
+backend/.env.*
+
+frontend-admin/node_modules/
+frontend-admin/.env
+frontend-admin/.env.*
+frontend-admin/dist/
+
+frontend-client/node_modules/
+frontend-client/.env
+frontend-client/.env.*
+frontend-client/dist/

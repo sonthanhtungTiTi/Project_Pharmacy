@@ -1,0 +1,20 @@
+/* Custom styles, overriding the default App.css */
+body {
+    background-color: theme('colors.main-bg');
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: theme('colors.gray-300');
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.gray-400');
+}
