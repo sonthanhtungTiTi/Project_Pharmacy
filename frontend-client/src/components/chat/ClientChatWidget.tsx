@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { Bot, Headset, Loader2, MessageCircle, Send, UserRound, X } from 'lucide-react'
 import {
+	ChatApiError,
 	getMyChatConversation,
 	requestHumanSupport,
 	sendChatMessage,
@@ -22,6 +23,19 @@ type AckPayload<T> = {
 	success?: boolean
 	data?: T
 	error?: string
+}
+
+const isUnauthorizedError = (error: unknown) => {
+	if (error instanceof ChatApiError) {
+		return error.status === 401
+	}
+
+	if (error instanceof Error) {
+		const message = error.message.toLowerCase()
+		return message.includes('unauthorized') || message.includes('token')
+	}
+
+	return false
 }
 
 const upsertMessages = (current: ChatMessage[], incoming: ChatMessage[]) => {
@@ -163,6 +177,27 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 	const [humanNotice, setHumanNotice] = useState('')
 	const bottomRef = useRef<HTMLDivElement | null>(null)
 
+	const resetAuthState = useCallback(() => {
+		localStorage.removeItem('clientAccessToken')
+		setConversation(null)
+		setMessages([])
+		setError(null)
+		setIsBotTyping(false)
+		setHumanNotice('')
+	}, [])
+
+	const handleAuthError = useCallback(
+		(loadError: unknown) => {
+			if (!isUnauthorizedError(loadError)) {
+				return false
+			}
+
+			resetAuthState()
+			return true
+		},
+		[resetAuthState],
+	)
+
 	const emitWithAck = useCallback(
 		<T,>(eventName: string, payload: Record<string, unknown>) => {
 			return new Promise<T>((resolve, reject) => {
@@ -212,12 +247,16 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 			setConversation(data.conversation)
 			setMessages(upsertMessages([], data.messages || []))
 		} catch (loadError) {
+			if (handleAuthError(loadError)) {
+				return
+			}
+
 			const message = loadError instanceof Error ? loadError.message : 'Khong the tai cuoc tro chuyen'
 			setError(message)
 		} finally {
 			setLoading(false)
 		}
-	}, [emitWithAck, socket])
+	}, [emitWithAck, handleAuthError, socket])
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -350,6 +389,10 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 				setIsBotTyping(false)
 			}
 		} catch (sendError) {
+			if (handleAuthError(sendError)) {
+				return
+			}
+
 			const message = sendError instanceof Error ? sendError.message : 'Khong the gui tin nhan'
 			setError(message)
 			setDraft(content)
@@ -390,6 +433,10 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 				setHumanNotice('Nhân viên sẽ tham gia hỗ trợ trong giây lát.')
 			setIsBotTyping(false)
 		} catch (requestError) {
+			if (handleAuthError(requestError)) {
+				return
+			}
+
 			const message = requestError instanceof Error ? requestError.message : 'Không thể yêu cầu nhân viên'
 			setError(message)
 		} finally {

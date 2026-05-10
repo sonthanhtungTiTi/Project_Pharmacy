@@ -15,6 +15,8 @@ import {
   faRightFromBracket,
   faUsers,
   faWarehouse,
+  faCalendarCheck,
+  faHeadset,
 } from '@fortawesome/free-solid-svg-icons'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -45,6 +47,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Kho Hàng', icon: faWarehouse, path: '/inventory' },
     { label: 'Người Dùng', icon: faUsers, path: '/customers' },
     { label: 'Báo Cáo', icon: faChartPie, path: '/reports' },
+    { label: 'Tư Vấn', icon: faCalendarCheck, path: '/consultations' },
+    { label: 'Hỗ Trợ', icon: faHeadset, path: '/support' },
   ]
 
   return (

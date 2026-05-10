@@ -24,7 +24,10 @@ const createProductSchema = Joi.object({
 	expiry: Joi.string().allow('').default(''),
 	manufacturerDetail: Joi.string().allow('').default(''),
 	characteristics: Joi.string().allow('').default(''),
-	images: Joi.string().allow('').default(''),
+	images: Joi.alternatives().try(
+		Joi.string().allow('').default(''),
+		Joi.array().items(Joi.string().trim().allow('')),
+	),
 	activeIngredient: Joi.string().allow(''),
 	medicineName: Joi.string().allow(''),
 	unit: Joi.string().allow(''),
@@ -57,7 +60,10 @@ const updateProductSchema = Joi.object({
 	expiry: Joi.string().allow(''),
 	manufacturerDetail: Joi.string().allow(''),
 	characteristics: Joi.string().allow(''),
-	images: Joi.string().allow(''),
+	images: Joi.alternatives().try(
+		Joi.string().allow(''),
+		Joi.array().items(Joi.string().trim().allow('')),
+	),
 	activeIngredient: Joi.string().allow(''),
 	medicineName: Joi.string().allow(''),
 	unit: Joi.string().allow(''),
@@ -68,10 +74,11 @@ const updateProductSchema = Joi.object({
 
 const addInventoryBatchSchema = Joi.object({
 	batchNumber: Joi.string().trim().required(),
-	quantity: Joi.number().integer().min(0).required(),
+	quantity: Joi.number().integer().min(0),
+	baseQuantity: Joi.number().integer().min(0),
 	expiryDate: Joi.date().iso().required(),
 	importPrice: Joi.number().min(0).required(),
-})
+}).or('quantity', 'baseQuantity')
 
 const productQuerySchema = Joi.object({
 	page: Joi.number().integer().min(1).default(1),

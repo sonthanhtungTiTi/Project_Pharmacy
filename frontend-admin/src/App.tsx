@@ -12,6 +12,7 @@ import Inventory from './pages/Inventory'
 import Customers from './pages/Customers'
 import Reports from './pages/Reports'
 import Support from './pages/Support'
+import Consultations from './pages/Consultations'
 import AdminLayout from './components/layout/AdminLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import VideoCallOverlay from './components/calls/VideoCallOverlay'
@@ -28,6 +29,8 @@ function CallProvider({ children }: { children: React.ReactNode }) {
   const socketRef = useRef<Socket | null>(null)
   const [callDuration, setCallDuration] = useState(0)
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [callPeerName, setCallPeerName] = useState('Khách hàng')
+  const [callPeerAvatar, setCallPeerAvatar] = useState<string | undefined>(undefined)
 
   // Build user object for the hook
   const callUser = user ? {
@@ -109,6 +112,11 @@ function CallProvider({ children }: { children: React.ReactNode }) {
           durationRef.current = null
         }
         setCallDuration(0)
+
+        if (newPhase === 'IDLE') {
+          setCallPeerName('Khách hàng')
+          setCallPeerAvatar(undefined)
+        }
       }
     },
     onIncomingCall: (data) => {
@@ -116,18 +124,29 @@ function CallProvider({ children }: { children: React.ReactNode }) {
     },
   })
 
-  // Listen for call initiation events from other pages (e.g. Customers page)
+  // Listen for consultation-based call initiation events
   useEffect(() => {
-    const handleInitiateCall = (e: Event) => {
-      const { peerId, peerName, callType: ct } = (e as CustomEvent).detail
-      if (peerId && peerName) {
-        initiateCall(peerId, peerName, ct || 'video')
+    const handleInitiateConsultationCall = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {}
+      const peerId = String(detail.peerId || '')
+      const peerName = detail.peerName || 'Khách hàng'
+      const callType = detail.callType === 'voice' ? 'voice' : 'video'
+      const consultationId = String(detail.consultationId || '')
+
+      if (!peerId || !consultationId) {
+        return
       }
+
+      setCallPeerName(peerName)
+      setCallPeerAvatar(detail.peerAvatarUrl || undefined)
+      initiateCall(peerId, peerName, callType, consultationId).catch((error) => {
+        console.error('Call init failed:', error)
+      })
     }
 
-    window.addEventListener('admin:initiate-call', handleInitiateCall)
+    window.addEventListener('admin:initiate-consultation-call', handleInitiateConsultationCall)
     return () => {
-      window.removeEventListener('admin:initiate-call', handleInitiateCall)
+      window.removeEventListener('admin:initiate-consultation-call', handleInitiateConsultationCall)
     }
   }, [initiateCall])
 
@@ -140,15 +159,8 @@ function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const peerName = incomingCall?.callerName || 'Khách hàng'
-  const peerAvatarUrl = incomingCall?.callerAvatarUrl
-
-  // Floating admin button handlers
-  const handleFloatingCallCustomer = () => {
-    // This would trigger a modal or navigate to customers page
-    const event = new CustomEvent('admin:show-customer-selector')
-    window.dispatchEvent(event)
-  }
+  const peerName = incomingCall?.callerName || callPeerName
+  const peerAvatarUrl = incomingCall?.callerAvatarUrl || callPeerAvatar
 
   const handleFloatingViewCustomers = () => {
     navigate('/customers')
@@ -179,7 +191,6 @@ function CallProvider({ children }: { children: React.ReactNode }) {
       {children}
       {isAuthenticated && (
         <FloatingAdminButton
-          onCallCustomer={handleFloatingCallCustomer}
           onViewCustomers={handleFloatingViewCustomers}
         />
       )}
@@ -286,6 +297,17 @@ function App() {
               <ProtectedRoute>
                 <AdminLayout>
                   <Support />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/consultations"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <Consultations />
                 </AdminLayout>
               </ProtectedRoute>
             }

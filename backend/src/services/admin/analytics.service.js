@@ -189,6 +189,16 @@ const getTopProducts = async ({ limit = 10 } = {}) => {
 	}))
 }
 
+const getBatchQuantity = (batch) => {
+	if (typeof batch?.baseQuantity === 'number') {
+		return batch.baseQuantity
+	}
+	if (typeof batch?.quantity === 'number') {
+		return batch.quantity
+	}
+	return 0
+}
+
 /**
  * Sản phẩm sắp hết hàng
  */
@@ -203,7 +213,7 @@ const getLowStockProducts = async ({ threshold = 10, limit = 20 } = {}) => {
 	// Tính tổng stock từ inventory batches
 	const lowStock = products
 		.map((p) => {
-			const totalStock = (p.inventory || []).reduce((sum, b) => sum + (b.quantity || 0), 0)
+			const totalStock = (p.inventory || []).reduce((sum, b) => sum + getBatchQuantity(b), 0)
 			return {
 				id: String(p._id),
 				medicineCode: p.medicineCode,
@@ -251,7 +261,7 @@ const getExpiringProducts = async ({ daysUntilExpiry = 90, limit = 20 } = {}) =>
 				productName: p.productName,
 				expiringBatches: expiringBatches.map((b) => ({
 					batchNumber: b.batchNumber,
-					quantity: b.quantity,
+					quantity: getBatchQuantity(b),
 					expiryDate: b.expiryDate,
 					daysLeft: Math.ceil((new Date(b.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
 				})),

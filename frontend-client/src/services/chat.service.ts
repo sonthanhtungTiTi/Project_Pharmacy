@@ -73,6 +73,16 @@ interface ApiResponse<T> {
 	error?: string
 }
 
+export class ChatApiError extends Error {
+	status: number
+
+	constructor(message: string, status: number) {
+		super(message)
+		this.name = 'ChatApiError'
+		this.status = status
+	}
+}
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '')
 
 const getAuthHeaders = () => {
@@ -88,10 +98,17 @@ const getAuthHeaders = () => {
 }
 
 const parseApiResponse = async <T>(response: Response): Promise<T> => {
-	const payload = (await response.json()) as ApiResponse<T>
+	let payload: ApiResponse<T> | null = null
 
-	if (!response.ok || !payload.success || !payload.data) {
-		throw new Error(payload.message || payload.error || 'Chat request failed')
+	try {
+		payload = (await response.json()) as ApiResponse<T>
+	} catch {
+		payload = null
+	}
+
+	if (!response.ok || !payload?.success || !payload?.data) {
+		const message = payload?.message || payload?.error || `Chat request failed (${response.status})`
+		throw new ChatApiError(message, response.status)
 	}
 
 	return payload.data

@@ -37,15 +37,75 @@ const trustTags = [
 	'Minh bạch giá và nguồn gốc',
 ]
 
-const extractFirstImage = (images: string) => {
+const getBackendUrl = () => {
+	const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+	return apiUrl.replace(/\/api\/?$/, '')
+}
+
+const cleanProxyUrl = (url: string) => {
+	if (!url) return ''
+
+	// Detect complex proxy URLs like https://img.tgdd.vn/imgt/ankhang/.../https://cdnv2.tgdd.vn/...
+	// We want to extract the second part which is the real image URL
+	const doubleHttpsIndex = url.lastIndexOf('https://')
+	if (doubleHttpsIndex > 0) {
+		return url.substring(doubleHttpsIndex)
+	}
+
+	const doubleHttpIndex = url.lastIndexOf('http://')
+	if (doubleHttpIndex > 0) {
+		return url.substring(doubleHttpIndex)
+	}
+
+	return url
+}
+
+const extractFirstImage = (images: string | string[]) => {
 	if (!images) {
 		return ''
 	}
 
-	return images
-		.split(';')
-		.map((item) => item.trim())
-		.find((item) => item.length > 0) || ''
+	let firstUrl = ''
+	if (Array.isArray(images)) {
+		firstUrl = images.find((img) => typeof img === 'string' && img.trim()) || ''
+	} else {
+		const trimmed = images.trim()
+		if (trimmed.startsWith('[')) {
+			try {
+				const parsed = JSON.parse(trimmed)
+				if (Array.isArray(parsed)) {
+					firstUrl = parsed.find((img) => typeof img === 'string' && img.trim()) || ''
+				}
+			} catch {
+				firstUrl = trimmed
+			}
+		} else {
+			// Split by common separators, prioritize ';' to avoid breaking URLs with commas
+			let parts: string[] = []
+			if (trimmed.includes(';')) {
+				parts = trimmed.split(';').map((s) => s.trim())
+			} else if (trimmed.includes('|')) {
+				parts = trimmed.split('|').map((s) => s.trim())
+			} else if (trimmed.includes(',')) {
+				if (!trimmed.includes('f_webp,') && !trimmed.includes('quality_')) {
+					parts = trimmed.split(',').map((s) => s.trim())
+				} else {
+					parts = [trimmed]
+				}
+			} else {
+				parts = [trimmed]
+			}
+			firstUrl = parts.find(Boolean) || ''
+		}
+	}
+
+	const cleaned = cleanProxyUrl(firstUrl)
+
+	if (cleaned && cleaned.startsWith('/') && !cleaned.startsWith('//')) {
+		return `${getBackendUrl()}${cleaned}`
+	}
+
+	return cleaned
 }
 
 const parsePriceNumber = (price: string) => {

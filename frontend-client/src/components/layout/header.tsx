@@ -116,7 +116,7 @@ function Header({
 				</div>
 			</div>
 
-			<header className="sticky top-0 z-[989] w-full bg-[#2eaf42] text-white shadow-[0_6px_18px_rgba(12,90,31,0.2)]">
+			<header className="sticky top-0 z-[2] w-full bg-[#2eaf42] text-white shadow-[0_6px_18px_rgba(12,90,31,0.2)]">
 				<div className="mx-auto max-w-[1200px] px-4">
 					<div className="flex items-center justify-between pt-4">
 					<div className="flex items-center gap-2 text-sm">

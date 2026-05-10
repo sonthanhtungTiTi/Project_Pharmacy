@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPen, faPlus } from '@fortawesome/free-solid-svg-icons'
@@ -12,7 +12,7 @@ interface MedicineFormProps {
   onCancel: () => void
 }
 
-type FormFieldValue = string | number | Blob | File
+type FormFieldValue = string | number | Blob | File | string[]
 type FormDataState = Record<string, FormFieldValue>
 
 const buildInitialFormData = (medicine?: Product) => ({
@@ -32,7 +32,7 @@ const buildInitialFormData = (medicine?: Product) => ({
   storage: medicine?.storage || medicine?.additionalInfo || '',
   packaging: medicine?.packaging || '',
   expiry: medicine?.expiry || '',
-  images: medicine?.images || '',
+  images: Array.isArray(medicine?.images) ? medicine.images.join('; ') : (medicine?.images || ''),
 })
 
 const normalizeSavedProduct = (payload: any): Product => {
@@ -159,6 +159,9 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
         price: numericPrice,
         categoryId,
         categoryName,
+        images: typeof formData.images === 'string' 
+          ? formData.images.split(';').map(s => s.trim()).filter(Boolean)
+          : formData.images,
       }
 
       const addStockBatchIfNeeded = async (targetProductId: string, unitImportPrice: number) => {
@@ -343,6 +346,18 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
                 onChange={(e) => setStockToAdd(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Ví dụ: 20"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Link Ảnh (ngăn cách bằng dấu ;)</label>
+              <input
+                type="text"
+                name="images"
+                value={typeof formData.images === 'string' ? formData.images : ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com/image1.jpg; https://example.com/image2.jpg"
               />
             </div>
           </div>

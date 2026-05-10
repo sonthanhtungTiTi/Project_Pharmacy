@@ -11,7 +11,6 @@ import MomoResultPage from './pages/MomoResultPage'
 import VnpayResultPage from './pages/VnpayResultPage'
 import ProfilePage from './pages/ProfilePage.tsx'
 import VideoCallOverlay from './components/calls/VideoCallComponent.tsx'
-import CallTargetSelector from './components/calls/CallTargetSelector'
 import FloatingContactButton from './components/ui/FloatingContactButton'
 import ClientChatWidget from './components/chat/ClientChatWidget'
 import { useWebRTCCall } from './hooks/useWebRTCCall'
@@ -95,7 +94,6 @@ function App() {
   const [activeEventSlug, setActiveEventSlug] = useState(getEventSlugFromPath())
 
   // ==================== CALL TARGET SELECTOR ====================
-  const [showCallSelector, setShowCallSelector] = useState(false)
   const [isChatWidgetOpen, setIsChatWidgetOpen] = useState(false)
 
   // ==================== SOCKET.IO CONNECTION ====================
@@ -219,24 +217,32 @@ function App() {
     }
   }, [])
 
-  // Listen for call events from other components (ConsultPharmacy page)
+  // Listen for consultation-based call requests
   useEffect(() => {
-    const handleOpenCallSelector = () => {
-      setShowCallSelector(true)
+    const handleInitiateConsultationCall = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {}
+      const staffId = String(detail.staffId || '')
+      const staffName = detail.staffName || 'Duoc si tu van'
+      const staffAvatar = detail.staffAvatar || undefined
+      const callType = detail.callType === 'voice' ? 'voice' : 'video'
+      const consultationId = String(detail.consultationId || '')
+
+      if (!staffId || !consultationId) {
+        return
+      }
+
+      setCallPeerName(staffName)
+      setCallPeerAvatar(staffAvatar)
+      initiateCall(staffId, staffName, callType, consultationId).catch((error) => {
+        console.error('Call init failed:', error)
+      })
     }
 
-    window.addEventListener('client:open-call-selector', handleOpenCallSelector)
+    window.addEventListener('client:initiate-consultation-call', handleInitiateConsultationCall)
     return () => {
-      window.removeEventListener('client:open-call-selector', handleOpenCallSelector)
+      window.removeEventListener('client:initiate-consultation-call', handleInitiateConsultationCall)
     }
-  }, [])
-
-  // Handle selecting a call target from the modal
-  const handleSelectCallTarget = (staffId: string, staffName: string, staffAvatar: string, callType: 'video' | 'voice') => {
-    setCallPeerName(staffName)
-    setCallPeerAvatar(staffAvatar || undefined)
-    initiateCall(staffId, staffName, callType)
-  }
+  }, [initiateCall])
 
   // Get peer info for call overlay
   const peerName = incomingCall?.callerName || callPeerName
@@ -355,11 +361,6 @@ function App() {
     setActiveHealthNewsId('')
   }
 
-  // Floating button handler — open call target selector
-  const handleFloatingCall = () => {
-    setShowCallSelector(true)
-  }
-
   const handleFloatingZaloChat = () => {
     window.open('https://zalo.me/0398668953', '_blank', 'noopener,noreferrer')
   }
@@ -371,14 +372,6 @@ function App() {
   // ==================== SHARED OVERLAYS ====================
   const renderCallOverlays = () => (
     <>
-      {/* Call target selector modal */}
-      <CallTargetSelector
-        isOpen={showCallSelector}
-        onClose={() => setShowCallSelector(false)}
-        onSelectTarget={handleSelectCallTarget}
-        socket={socket}
-      />
-
       {/* Active call overlay */}
       {(callPhase === 'RINGING' || callPhase === 'IN_CALL') && (
         <VideoCallOverlay
@@ -405,8 +398,6 @@ function App() {
   const renderSupportTools = () => (
     <>
       <FloatingContactButton
-        onVideoCall={handleFloatingCall}
-        onVoiceCall={handleFloatingCall}
         onZaloChat={handleFloatingZaloChat}
         onAiChat={handleFloatingAiChat}
       />

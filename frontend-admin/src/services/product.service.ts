@@ -35,7 +35,7 @@ export interface Product {
   manufacturerDetail?: string
   characteristics?: string
   description?: string
-  images?: string
+  images?: string | string[]
   inventory?: Array<{
     batchNumber?: string
     quantity?: number
