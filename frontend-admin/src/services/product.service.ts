@@ -43,6 +43,7 @@ export interface Product {
     importPrice?: number
   }>
   totalStock?: number
+  qrCode?: string
 }
 
 export interface ProductsResponse {
