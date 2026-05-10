@@ -355,10 +355,19 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
     }, [])
 
     const initiateCall = useCallback(
-        async (peerId: string, _peerName: string, type: 'video' | 'voice' = 'video') => {
+        async (
+            peerId: string,
+            _peerName: string,
+            type: 'video' | 'voice' = 'video',
+            consultationId?: string,
+        ) => {
             const targetUserId = normalizeUserId(peerId)
             if (!socket || !targetUserId || !userId) {
                 return
+            }
+
+            if (!consultationId) {
+                throw new Error('Can co lich tu van da xac nhan de bat dau cuoc goi')
             }
 
             if (!peerRef.current || !peerReadyRef.current) {
@@ -398,6 +407,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
                             callId,
                             targetUserId,
                             callType: normalizedType,
+                            consultationId,
                             callerPeerId: userId,
                             callerData: {
                                 userId,

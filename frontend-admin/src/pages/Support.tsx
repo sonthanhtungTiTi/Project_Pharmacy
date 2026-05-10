@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import io, { type Socket } from 'socket.io-client'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPhone, faUsers, faVideo } from '@fortawesome/free-solid-svg-icons'
+import { faPhone, faUsers } from '@fortawesome/free-solid-svg-icons'
 import adminUserService from '../services/admin-user.service'
 import type { AdminUserItem } from '../services/admin-user.service'
 import adminChatService, {
@@ -352,18 +352,6 @@ export default function Support() {
     }
   }, [mergeConversationUpdate, selectedConversationId, socket])
 
-  const initiateVideoCall = (customerId: string, customerName: string) => {
-    window.dispatchEvent(new CustomEvent('admin:initiate-call', {
-      detail: { peerId: customerId, peerName: customerName, callType: 'video' }
-    }))
-  }
-
-  const initiateVoiceCall = (customerId: string, customerName: string) => {
-    window.dispatchEvent(new CustomEvent('admin:initiate-call', {
-      detail: { peerId: customerId, peerName: customerName, callType: 'voice' }
-    }))
-  }
-
   const joinConversation = async () => {
     if (!selectedConversationId || joiningConversation) {
       return
@@ -500,7 +488,7 @@ export default function Support() {
           <FontAwesomeIcon icon={faPhone} className="text-blue-600" />
           Trung Tâm Hỗ Trợ Khách Hàng
         </h1>
-        <p className="text-gray-600 mt-1">Theo dõi hội thoại AI, tham gia hỗ trợ realtime và gọi trực tiếp cho khách hàng.</p>
+        <p className="text-gray-600 mt-1">Theo dõi hội thoại AI và tham gia hỗ trợ realtime.</p>
       </div>
 
       {chatError && (
@@ -768,7 +756,7 @@ export default function Support() {
         ) : customers.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <div className="text-5xl mb-3 text-blue-500"><FontAwesomeIcon icon={faUsers} /></div>
-            <p className="text-sm">Khong co khach hang nao de goi.</p>
+            <p className="text-sm">Khong co khach hang nao.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -778,24 +766,7 @@ export default function Support() {
                   <p className="text-sm font-semibold text-gray-900 truncate">{customer.fullName}</p>
                   <p className="text-xs text-gray-500 truncate">{customer.email}</p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => initiateVideoCall(customer.id, customer.fullName)}
-                    className="flex-1 px-3 py-2 text-xs bg-green-50 text-green-700 rounded hover:bg-green-100 transition font-medium"
-                    title="Goi video"
-                  >
-                    <FontAwesomeIcon icon={faVideo} className="mr-1" />
-                    Video
-                  </button>
-                  <button
-                    onClick={() => initiateVoiceCall(customer.id, customer.fullName)}
-                    className="flex-1 px-3 py-2 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition font-medium"
-                    title="Goi dien thoai"
-                  >
-                    <FontAwesomeIcon icon={faPhone} className="mr-1" />
-                    Dien thoai
-                  </button>
-                </div>
+                <p className="text-xs text-gray-500">Chi goi trong lich tu van da xac nhan.</p>
               </div>
             ))}
           </div>

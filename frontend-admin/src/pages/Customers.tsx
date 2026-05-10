@@ -7,10 +7,8 @@ import {
   faChevronRight,
   faKey,
   faMagnifyingGlass,
-  faPhone,
   faUserPlus,
   faUsers,
-  faVideo,
 } from '@fortawesome/free-solid-svg-icons'
 import adminUserService from '../services/admin-user.service'
 import type { AdminUserItem, UserRole, UserQueryParams, UserStats, CreateUserData } from '../services/admin-user.service'
@@ -280,29 +278,6 @@ export default function UsersPage() {
                     <td className="py-3 px-4 text-xs text-gray-500">{formatDate(user.createdAt)}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => {
-                            // Dispatch custom event to trigger call from CallProvider
-                            window.dispatchEvent(new CustomEvent('admin:initiate-call', {
-                              detail: { peerId: user.id, peerName: user.fullName, callType: 'video' }
-                            }))
-                          }}
-                          className="px-2 py-1 text-xs bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition"
-                          title="Gọi Video"
-                        >
-                          <FontAwesomeIcon icon={faVideo} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            window.dispatchEvent(new CustomEvent('admin:initiate-call', {
-                              detail: { peerId: user.id, peerName: user.fullName, callType: 'voice' }
-                            }))
-                          }}
-                          className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"
-                          title="Gọi Thoại"
-                        >
-                          <FontAwesomeIcon icon={faPhone} />
-                        </button>
                         <button
                           onClick={() => { setSelectedUser(user); setShowRoleModal(true) }}
                           className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"

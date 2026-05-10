@@ -26,6 +26,69 @@ const extractFirstImage = (images) => {
 		.find((item) => item.length > 0) || ''
 }
 
+const syncCartItemsWithProducts = async (cart) => {
+	if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+		return cart
+	}
+
+	const productIds = cart.items.map((item) => item.productId).filter(Boolean)
+	if (productIds.length === 0) {
+		return cart
+	}
+
+	const products = await Product.find({
+		_id: { $in: productIds },
+		isActive: { $ne: false },
+	})
+		.select('_id productName medicineCode images price')
+		.lean()
+
+	const productMap = new Map(products.map((product) => [String(product._id), product]))
+	let hasChanges = false
+	const nextItems = []
+
+	for (const item of cart.items) {
+		const product = productMap.get(String(item.productId))
+		if (!product) {
+			hasChanges = true
+			continue
+		}
+
+		const unitPrice = parsePriceNumber(product.price)
+		const productName = product.productName || item.productName
+		const productImage = extractFirstImage(product.images)
+		const medicineCode = product.medicineCode || ''
+
+		if (
+			item.unitPrice !== unitPrice ||
+			item.productName !== productName ||
+			item.productImage !== productImage ||
+			item.medicineCode !== medicineCode
+		) {
+			hasChanges = true
+		}
+
+		nextItems.push({
+			...item,
+			unitPrice,
+			productName,
+			productImage,
+			medicineCode,
+		})
+	}
+
+	if (nextItems.length !== cart.items.length) {
+		hasChanges = true
+	}
+
+	if (hasChanges) {
+		cart.items = nextItems
+		await cart.save()
+	}
+
+	return cart
+}
+
 const serializeCart = (cartDoc) => {
 	const items = (cartDoc?.items || []).map((item) => {
 		const quantity = Math.max(1, Number(item.quantity) || 1)
@@ -74,7 +137,8 @@ const getCartByUserId = async (userId) => {
 	}
 
 	const cart = await ensureCart(userId)
-	return serializeCart(cart)
+	const syncedCart = await syncCartItemsWithProducts(cart)
+	return serializeCart(syncedCart)
 }
 
 const addItemToCart = async (userId, { productId, quantity = 1 }) => {

@@ -9,6 +9,16 @@ class InventoryServiceError extends Error {
 	}
 }
 
+const getBatchQuantity = (batch) => {
+	if (typeof batch?.baseQuantity === 'number') {
+		return batch.baseQuantity
+	}
+	if (typeof batch?.quantity === 'number') {
+		return batch.quantity
+	}
+	return 0
+}
+
 /**
  * Danh sách tồn kho — tất cả sản phẩm + tổng stock
  */
@@ -42,7 +52,7 @@ const listInventory = async ({ page = 1, limit = 20, search, stockStatus } = {})
 
 	let items = products.map((p) => {
 		const batches = p.inventory || []
-		const totalStock = batches.reduce((sum, b) => sum + (b.quantity || 0), 0)
+		const totalStock = batches.reduce((sum, b) => sum + getBatchQuantity(b), 0)
 		const nearestExpiry = batches
 			.filter((b) => b.expiryDate)
 			.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))[0]
@@ -60,7 +70,7 @@ const listInventory = async ({ page = 1, limit = 20, search, stockStatus } = {})
 			nearestExpiry: nearestExpiry ? {
 				batchNumber: nearestExpiry.batchNumber,
 				expiryDate: nearestExpiry.expiryDate,
-				quantity: nearestExpiry.quantity,
+				quantity: getBatchQuantity(nearestExpiry),
 				daysLeft: Math.ceil((new Date(nearestExpiry.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
 			} : null,
 		}
@@ -104,7 +114,7 @@ const getProductInventory = async (productId) => {
 
 	const batches = (product.inventory || []).map((b) => ({
 		batchNumber: b.batchNumber,
-		quantity: b.quantity,
+		quantity: getBatchQuantity(b),
 		expiryDate: b.expiryDate,
 		importPrice: b.importPrice,
 		daysUntilExpiry: Math.ceil((new Date(b.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
@@ -147,9 +157,10 @@ const importBatch = async (productId, batchData) => {
 		throw new InventoryServiceError('Số lô đã tồn tại cho sản phẩm này', 409)
 	}
 
+	const resolvedQuantity = Number(batchData?.baseQuantity ?? batchData?.quantity ?? 0)
 	product.inventory.push({
 		batchNumber: batchData.batchNumber,
-		quantity: batchData.quantity,
+		baseQuantity: resolvedQuantity,
 		expiryDate: batchData.expiryDate,
 		importPrice: batchData.importPrice,
 	})
@@ -181,7 +192,7 @@ const adjustBatchQuantity = async (productId, batchNumber, { quantity, reason } 
 		throw new InventoryServiceError('Số lô không tồn tại', 404)
 	}
 
-	batch.quantity = Math.max(0, Number(quantity))
+	batch.baseQuantity = Math.max(0, Number(quantity))
 	await product.save()
 
 	return getProductInventory(productId)
@@ -232,7 +243,7 @@ const getExpiringBatches = async ({ daysUntilExpiry = 90 } = {}) => {
 			.filter((b) => new Date(b.expiryDate) <= thresholdDate)
 			.map((b) => ({
 				batchNumber: b.batchNumber,
-				quantity: b.quantity,
+				quantity: getBatchQuantity(b),
 				expiryDate: b.expiryDate,
 				importPrice: b.importPrice,
 				daysLeft: Math.ceil((new Date(b.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
@@ -279,11 +290,11 @@ const getInventoryOverview = async () => {
 
 	for (const p of products) {
 		const batches = p.inventory || []
-		const productStock = batches.reduce((sum, b) => sum + (b.quantity || 0), 0)
+		const productStock = batches.reduce((sum, b) => sum + getBatchQuantity(b), 0)
 
 		totalBatches += batches.length
 		totalStock += productStock
-		totalValue += batches.reduce((sum, b) => sum + (b.quantity || 0) * (b.importPrice || 0), 0)
+		totalValue += batches.reduce((sum, b) => sum + getBatchQuantity(b) * (b.importPrice || 0), 0)
 
 		if (productStock === 0) outOfStock++
 		else if (productStock <= 10) lowStock++

@@ -43,6 +43,12 @@ const productSchema = new mongoose.Schema(
 			type: String,
 			required: true,
 		},
+		price: {
+			type: Number,
+			required: true,
+			min: 0,
+			default: 0,
+		},
 		baseUnit: {
 			type: String,
 			required: true,
@@ -133,7 +139,7 @@ const productSchema = new mongoose.Schema(
 )
 
 // Pre-save hook for validation, auto-parsing, and inventory sync
-productSchema.pre('save', function (next) {
+productSchema.pre('save', function () {
 	// 1. Validate sellUnits against units
 	if (this.units && this.sellUnits) {
 		const unitKeys = Array.from(this.units.keys())
@@ -141,21 +147,21 @@ productSchema.pre('save', function (next) {
 
 		for (const key of sellKeys) {
 			if (!unitKeys.includes(key) && key !== this.baseUnit) {
-				return next(new Error(`Sell unit '${key}' không có trong units`))
+				throw new Error(`Sell unit '${key}' không có trong units`)
 			}
 		}
 	}
 
 	// 2. Validate defaultSellUnit exists in sellUnits
 	if (this.defaultSellUnit && (!this.sellUnits || !this.sellUnits.has(this.defaultSellUnit))) {
-		return next(new Error('defaultSellUnit không tồn tại trong sellUnits'))
+		throw new Error('defaultSellUnit không tồn tại trong sellUnits')
 	}
 
 	// 3. Validate unit values > 0
 	if (this.units) {
 		for (const [key, value] of this.units.entries()) {
 			if (value <= 0) {
-				return next(new Error(`Unit '${key}' phải > 0`))
+				throw new Error(`Unit '${key}' phải > 0`)
 			}
 		}
 	}
@@ -167,7 +173,7 @@ productSchema.pre('save', function (next) {
 		
 		for (const item of this.inventory) {
 			if (batchSet.has(item.batchNumber)) {
-				return next(new Error(`Trùng batchNumber: ${item.batchNumber}`))
+				throw new Error(`Trùng batchNumber: ${item.batchNumber}`)
 			}
 			batchSet.add(item.batchNumber)
 			total += (item.baseQuantity || 0)
@@ -197,8 +203,6 @@ productSchema.pre('save', function (next) {
 			}
 		}
 	}
-	
-	next()
 })
 
 // Add indexes for better query performance

@@ -55,37 +55,80 @@ const formatPrice = (value: number | string | undefined) => {
   return value ? String(value) : '-'
 }
 
-const normalizeProductImage = (rawImage: Product['images']) => {
-  if (typeof rawImage !== 'string') {
-    return ''
+const getBackendUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+  return apiUrl.replace(/\/api\/?$/, '')
+}
+
+const cleanProxyUrl = (url: string) => {
+  if (!url) return ''
+  
+  // Detect complex proxy URLs like https://img.tgdd.vn/imgt/ankhang/.../https://cdnv2.tgdd.vn/...
+  // We want to extract the second part which is the real image URL
+  const doubleHttpsIndex = url.lastIndexOf('https://')
+  if (doubleHttpsIndex > 0) {
+    return url.substring(doubleHttpsIndex)
+  }
+  
+  const doubleHttpIndex = url.lastIndexOf('http://')
+  if (doubleHttpIndex > 0) {
+    return url.substring(doubleHttpIndex)
   }
 
-  const trimmed = rawImage.trim()
-  if (!trimmed) {
-    return ''
-  }
+  return url
+}
 
-  if (trimmed.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(trimmed)
-      if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
-        return parsed[0].trim()
+const extractAllImages = (rawImage: Product['images']): string[] => {
+  if (!rawImage) return []
+
+  let urls: string[] = []
+
+  if (Array.isArray(rawImage)) {
+    urls = rawImage.filter((img) => typeof img === 'string' && img.trim())
+  } else if (typeof rawImage === 'string') {
+    const trimmed = rawImage.trim()
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) {
+          urls = parsed.filter((img) => typeof img === 'string' && img.trim())
+        }
+      } catch {
+        urls = [trimmed]
       }
-    } catch {
-      return ''
+    } else {
+      // Split by common separators, but prioritize ';' to avoid breaking URLs with commas
+      let parts: string[] = []
+      if (trimmed.includes(';')) {
+        parts = trimmed.split(';').map((s) => s.trim())
+      } else if (trimmed.includes('|')) {
+        parts = trimmed.split('|').map((s) => s.trim())
+      } else if (trimmed.includes(',')) {
+        // Only split by comma if it doesn't look like part of a TGDD proxy URL (f_webp,fit_outside,...)
+        if (!trimmed.includes('f_webp,') && !trimmed.includes('quality_')) {
+          parts = trimmed.split(',').map((s) => s.trim())
+        } else {
+          parts = [trimmed]
+        }
+      } else {
+        parts = [trimmed]
+      }
+      urls = parts.filter(Boolean)
     }
   }
 
-  for (const separator of ['|', ';', ',']) {
-    if (trimmed.includes(separator)) {
-      return trimmed
-        .split(separator)
-        .map((item) => item.trim())
-        .find(Boolean) || ''
+  return urls.map((url) => {
+    const cleaned = cleanProxyUrl(url)
+    if (cleaned.startsWith('/') && !cleaned.startsWith('//')) {
+      return `${getBackendUrl()}${cleaned}`
     }
-  }
+    return cleaned
+  })
+}
 
-  return trimmed
+const normalizeProductImage = (rawImage: Product['images']) => {
+  const all = extractAllImages(rawImage)
+  return all.length > 0 ? all[0] : ''
 }
 
 export default function MedicineList({ categoryId, categoryName }: MedicineListProps) {
@@ -99,6 +142,7 @@ export default function MedicineList({ categoryId, categoryName }: MedicineListP
   const [showForm, setShowForm] = useState(false)
   const [editingMedicine, setEditingMedicine] = useState<Product | undefined>()
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [lightboxData, setLightboxData] = useState<{ images: string[]; index: number } | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const toastTimeoutRef = useRef<number | null>(null)
 
@@ -308,19 +352,29 @@ export default function MedicineList({ categoryId, categoryName }: MedicineListP
                           <div className="flex items-start gap-4">
                             <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                               {hasImage ? (
-                                <img
-                                  src={imageSrc}
-                                  alt=""
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="h-full w-full object-cover"
-                                  onError={() => {
-                                    setImageErrorMap((prev) => ({
-                                      ...prev,
-                                      [imageStateKey]: true,
-                                    }))
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const allImages = extractAllImages(medicine.images)
+                                    setLightboxData({ images: allImages, index: 0 })
                                   }}
-                                />
+                                  className="h-full w-full overflow-hidden focus:outline-none"
+                                  title="Nhấn để xem bộ ảnh"
+                                >
+                                  <img
+                                    src={imageSrc}
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="h-full w-full object-cover transition hover:scale-110"
+                                    onError={() => {
+                                      setImageErrorMap((prev) => ({
+                                        ...prev,
+                                        [imageStateKey]: true,
+                                      }))
+                                    }}
+                                  />
+                                </button>
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center text-gray-300">
                                   <FontAwesomeIcon icon={faImage} className="text-2xl" />
@@ -466,6 +520,82 @@ export default function MedicineList({ categoryId, categoryName }: MedicineListP
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image Lightbox */}
+      {lightboxData && (
+        <div 
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 p-4 transition-all"
+          onClick={() => setLightboxData(null)}
+        >
+          {/* Main Image */}
+          <div className="relative flex max-h-[80vh] items-center justify-center">
+            <img 
+              src={lightboxData.images[lightboxData.index]} 
+              alt="Preview" 
+              className="max-h-full max-w-full rounded-lg shadow-2xl transition-all duration-300"
+              onClick={(e) => e.stopPropagation()}
+            />
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setLightboxData(null)}
+              className="absolute -right-4 -top-12 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            >
+              <span className="text-3xl">&times;</span>
+            </button>
+
+            {/* Navigation Arrows */}
+            {lightboxData.images.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLightboxData(prev => prev ? {
+                      ...prev,
+                      index: (prev.index - 1 + prev.images.length) % prev.images.length
+                    } : null)
+                  }}
+                  className="absolute -left-16 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                >
+                  <FontAwesomeIcon icon={faArrowLeft} className="text-xl" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLightboxData(prev => prev ? {
+                      ...prev,
+                      index: (prev.index + 1) % prev.images.length
+                    } : null)
+                  }}
+                  className="absolute -right-16 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                >
+                  <FontAwesomeIcon icon={faArrowRight} className="text-xl" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Indicators & Info */}
+          {lightboxData.images.length > 1 && (
+            <div className="mt-8 flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
+              <div className="flex gap-2">
+                {lightboxData.images.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLightboxData(prev => prev ? { ...prev, index: i } : null)}
+                    className={`h-2 w-2 rounded-full transition-all ${
+                      i === lightboxData.index ? 'bg-blue-500 w-6' : 'bg-white/30 hover:bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-white/60 text-sm font-medium">
+                Ảnh {lightboxData.index + 1} / {lightboxData.images.length}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

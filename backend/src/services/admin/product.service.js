@@ -10,6 +10,16 @@ class AdminProductServiceError extends Error {
 	}
 }
 
+const getBatchQuantity = (batch) => {
+	if (typeof batch?.baseQuantity === 'number') {
+		return batch.baseQuantity
+	}
+	if (typeof batch?.quantity === 'number') {
+		return batch.quantity
+	}
+	return 0
+}
+
 /**
  * Serialize product cho admin (trả về đầy đủ thông tin)
  */
@@ -47,11 +57,11 @@ const serializeProduct = (doc) => ({
 	isActive: doc.isActive !== false,
 	inventory: (doc.inventory || []).map((batch) => ({
 		batchNumber: batch.batchNumber,
-		quantity: batch.quantity,
+		quantity: getBatchQuantity(batch),
 		expiryDate: batch.expiryDate,
 		importPrice: batch.importPrice,
 	})),
-	totalStock: (doc.inventory || []).reduce((sum, b) => sum + (b.quantity || 0), 0),
+	totalStock: (doc.inventory || []).reduce((sum, b) => sum + getBatchQuantity(b), 0),
 	createdAt: doc.createdAt,
 	updatedAt: doc.updatedAt,
 })
@@ -255,7 +265,16 @@ const addInventoryBatch = async (productId, batchData) => {
 		throw new AdminProductServiceError('Số lô đã tồn tại cho sản phẩm này', 409)
 	}
 
-	product.inventory.push(batchData)
+	const resolvedQuantity = Number(
+		batchData?.baseQuantity ?? batchData?.quantity ?? 0,
+	)
+
+	product.inventory.push({
+		batchNumber: batchData.batchNumber,
+		baseQuantity: resolvedQuantity,
+		expiryDate: batchData.expiryDate,
+		importPrice: batchData.importPrice,
+	})
 	await product.save()
 
 	return serializeProduct(product)

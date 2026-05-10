@@ -5,7 +5,7 @@ export interface ProductItem {
 	price: string
 	categoryId: string
 	categoryName: string
-	images: string
+	images: string | string[]
 	isActive: boolean
 }
 
@@ -32,7 +32,7 @@ export interface ProductDetail {
 	manufacturerDetail: string
 	characteristics: string
 	packaging: string
-	images: string
+	images: string | string[]
 	medicineCode: string
 	categoryId: string
 	isActive?: boolean

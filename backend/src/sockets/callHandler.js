@@ -1,10 +1,15 @@
 const jwt = require('jsonwebtoken')
+const mongoose = require('mongoose')
+const Consultation = require('../models/consultation.model')
 const registerChatHandlers = require('./chatHandler')
 
 // Theo dõi người dùng đang online: userId -> { userId, role, name, socketIds:Set }
 const onlineUsers = new Map()
 const callSessions = new Map()
 const busyUsers = new Set()
+
+const CALL_WINDOW_MINUTES = Math.max(1, Number(process.env.CALL_WINDOW_MINUTES || 60))
+const ALLOW_OFFLINE_CALLS = process.env.ALLOW_OFFLINE_CALLS === 'true'
 
 const serializeOnlineUsers = () =>
     Array.from(onlineUsers.values()).map((user) => ({
@@ -15,6 +20,89 @@ const serializeOnlineUsers = () =>
     }))
 
 const normalizeUserId = (value) => String(value || '')
+
+const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value)
+
+const isWithinCallWindow = (consultationDate) => {
+    if (!consultationDate) return false
+    const consultationTime = new Date(consultationDate).getTime()
+    if (Number.isNaN(consultationTime)) return false
+
+    const diffMs = Math.abs(consultationTime - Date.now())
+    return diffMs <= CALL_WINDOW_MINUTES * 60 * 1000
+}
+
+const isAllowedCallType = (consultationType, callType) => {
+    if (consultationType === 'phone') return callType === 'voice'
+    if (consultationType === 'offline') return ALLOW_OFFLINE_CALLS
+    return true
+}
+
+const fetchConsultation = async (consultationId) => {
+    if (!isValidObjectId(consultationId)) return null
+    return Consultation.findById(consultationId).lean()
+}
+
+const validateCallPermission = async ({ consultationId, callerId, targetUserId, callType }) => {
+    if (!consultationId) {
+        return { ok: false, reason: 'CONSULTATION_REQUIRED' }
+    }
+
+    const consultation = await fetchConsultation(consultationId)
+    if (!consultation) {
+        return { ok: false, reason: 'CONSULTATION_NOT_FOUND' }
+    }
+
+    if (consultation.status !== 'confirmed') {
+        return { ok: false, reason: 'CONSULTATION_NOT_CONFIRMED' }
+    }
+
+    if (!consultation.assignedStaff) {
+        return { ok: false, reason: 'CONSULTATION_NOT_ASSIGNED' }
+    }
+
+    if (!isWithinCallWindow(consultation.consultationDate)) {
+        return { ok: false, reason: 'CONSULTATION_OUT_OF_WINDOW' }
+    }
+
+    const normalizedCallerId = normalizeUserId(callerId)
+    const normalizedTargetId = normalizeUserId(targetUserId)
+    const consultationUserId = normalizeUserId(consultation.userId)
+    const consultationStaffId = normalizeUserId(consultation.assignedStaff)
+
+    const isClientCallingStaff =
+        normalizedCallerId === consultationUserId && normalizedTargetId === consultationStaffId
+    const isStaffCallingClient =
+        normalizedCallerId === consultationStaffId && normalizedTargetId === consultationUserId
+
+    if (!isClientCallingStaff && !isStaffCallingClient) {
+        return { ok: false, reason: 'CONSULTATION_CALL_FORBIDDEN' }
+    }
+
+    if (!isAllowedCallType(consultation.consultationType, callType)) {
+        return { ok: false, reason: 'CALL_TYPE_NOT_ALLOWED' }
+    }
+
+    return {
+        ok: true,
+        consultation,
+        consultationUserId,
+        consultationStaffId,
+    }
+}
+
+const completeConsultationIfNeeded = async (session) => {
+    if (!session || !session.accepted || !session.consultationId) return
+    if (!isValidObjectId(session.consultationId)) return
+
+    const consultation = await Consultation.findById(session.consultationId)
+    if (!consultation) return
+    if (consultation.status !== 'confirmed') return
+
+    consultation.status = 'completed'
+    consultation.completedAt = new Date()
+    await consultation.save()
+}
 
 const isUserOnline = (userId) => {
     const normalized = normalizeUserId(userId)
@@ -117,15 +205,36 @@ const setupCallHandlers = (io) => {
 
         // ==================== 4. CALL SIGNALING FOR PEERJS ====================
         // Caller asks server to notify target user about a new incoming call.
-        socket.on('call:make', (payload = {}, callback) => {
+        socket.on('call:make', async (payload = {}, callback) => {
             const targetUserId = normalizeUserId(payload.targetUserId)
             const callId = payload.callId
             const callType = payload.callType === 'voice' ? 'voice' : 'video'
             const callerUserId = normalizeUserId(socket.userId)
+            const consultationId = normalizeUserId(payload.consultationId)
 
             if (!targetUserId || !callId) {
                 if (typeof callback === 'function') {
                     callback({ ok: false, reason: 'INVALID_PAYLOAD' })
+                }
+                return
+            }
+
+            const permission = await validateCallPermission({
+                consultationId,
+                callerId: callerUserId,
+                targetUserId,
+                callType,
+            })
+
+            if (!permission.ok) {
+                socket.emit('call:unavailable', {
+                    callId,
+                    targetUserId,
+                    reason: permission.reason,
+                })
+
+                if (typeof callback === 'function') {
+                    callback({ ok: false, reason: permission.reason })
                 }
                 return
             }
@@ -160,6 +269,9 @@ const setupCallHandlers = (io) => {
                 callId,
                 callerId: callerUserId,
                 calleeId: targetUserId,
+                consultationId,
+                accepted: false,
+                callType,
             })
             setUserBusy(callerUserId, true)
             setUserBusy(targetUserId, true)
@@ -185,6 +297,12 @@ const setupCallHandlers = (io) => {
             const targetUserId = normalizeUserId(payload.targetUserId)
             const callId = payload.callId
             if (!targetUserId || !callId) return
+
+            const session = callSessions.get(normalizeUserId(callId))
+            if (session) {
+                session.accepted = true
+                session.acceptedAt = new Date()
+            }
 
             socket.to(targetUserId).emit('call:accepted', {
                 callId,
@@ -229,7 +347,12 @@ const setupCallHandlers = (io) => {
             const callId = payload.callId
             if (!targetUserId || !callId) return
 
-            releaseCallSession(callId)
+            const session = releaseCallSession(callId)
+            if (session) {
+                void completeConsultationIfNeeded(session).catch((error) => {
+                    console.error('[Call] Auto-complete consultation failed:', error)
+                })
+            }
 
             socket.to(targetUserId).emit('call:end', {
                 callId,
@@ -265,10 +388,16 @@ const setupCallHandlers = (io) => {
             })
 
             disconnectedSessions.forEach(({ sessionId, session }) => {
-                releaseCallSession(sessionId)
+                const sessionSnapshot = releaseCallSession(sessionId)
 
                 const otherUserId =
                     session.callerId === disconnectedUserId ? session.calleeId : session.callerId
+
+                if (sessionSnapshot) {
+                    void completeConsultationIfNeeded(sessionSnapshot).catch((error) => {
+                        console.error('[Call] Auto-complete consultation failed:', error)
+                    })
+                }
 
                 socket.to(otherUserId).emit('call:end', {
                     callId: sessionId,

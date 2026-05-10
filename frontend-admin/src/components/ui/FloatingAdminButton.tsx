@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { Phone, Video, Users, X } from 'lucide-react'
 
 interface FloatingAdminButtonProps {
-	onCallCustomer?: () => void
 	onViewCustomers?: () => void
 }
 
 export default function FloatingAdminButton({
-	onCallCustomer,
 	onViewCustomers,
 }: FloatingAdminButtonProps) {
 	const [isOpen, setIsOpen] = useState(false)
@@ -19,26 +17,6 @@ export default function FloatingAdminButton({
 			{/* Menu Items */}
 			{isOpen && (
 				<div className="absolute bottom-24 right-0 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3 min-w-[220px] animate-in fade-in zoom-in-95 duration-200">
-					{/* Quick Call */}
-					{onCallCustomer && (
-						<button
-							onClick={() => {
-								onCallCustomer()
-								handleClose()
-							}}
-							className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-green-50 transition text-left"
-							title="Gọi khách hàng"
-						>
-							<div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-								<Phone className="w-5 h-5 text-green-600" />
-							</div>
-							<div>
-								<div className="text-sm font-medium text-gray-900">Gọi Khách</div>
-								<div className="text-xs text-gray-500">Gọi nhanh</div>
-							</div>
-						</button>
-					)}
-
 					{/* View Customers */}
 					{onViewCustomers && (
 						<button
