@@ -10,7 +10,7 @@ const ROLES = {
 	SALES_STAFF: 'sales_staff',
 	MANAGER: 'manager',
 	ADMIN: 'admin',
-	BANNED: 'banned',
+	BANNED: 'banned',	
 }
 
 const ROLE_LIST = Object.values(ROLES)
