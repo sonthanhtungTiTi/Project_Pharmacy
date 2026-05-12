@@ -59,8 +59,28 @@ export default function Orders() {
         return 'bg-green-100 text-green-800'
       case 'cancelled':
         return 'bg-red-100 text-red-800'
+      case 'pending_prescription':
+        return 'bg-orange-100 text-orange-800'
+      case 'approved':
+        return 'bg-emerald-100 text-emerald-800'
+      case 'rejected':
+        return 'bg-red-200 text-red-900'
       default:
         return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Chờ xác nhận'
+      case 'confirmed': return 'Đã xác nhận'
+      case 'shipping': return 'Đang giao hàng'
+      case 'completed': return 'Hoàn thành'
+      case 'cancelled': return 'Đã hủy'
+      case 'pending_prescription': return '📋 Chờ duyệt đơn thuốc'
+      case 'approved': return '✅ Đã duyệt đơn'
+      case 'rejected': return '❌ Từ chối đơn'
+      default: return status
     }
   }
 
@@ -128,6 +148,9 @@ export default function Orders() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">Tất cả trạng thái</option>
+            <option value="pending_prescription">📋 Chờ duyệt đơn thuốc</option>
+            <option value="approved">✅ Đã duyệt đơn</option>
+            <option value="rejected">❌ Từ chối đơn</option>
             <option value="pending">Chờ xác nhận</option>
             <option value="confirmed">Đã xác nhận</option>
             <option value="shipping">Đang giao hàng</option>
@@ -219,17 +242,9 @@ export default function Orders() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <select
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value as Order['status'])}
-                        className={`text-xs font-semibold px-3 py-1 rounded-full border-none cursor-pointer ${getStatusColor(order.status)}`}
-                      >
-                        <option value="pending">Chờ xác nhận</option>
-                        <option value="confirmed">Đã xác nhận</option>
-                        <option value="shipping">Đang giao hàng</option>
-                        <option value="completed">Hoàn thành</option>
-                        <option value="cancelled">Đã hủy</option>
-                      </select>
+                      <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${getStatusColor(order.status)}`}>
+                        {getStatusLabel(order.status)}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(order.placedAt)}</td>
                     <td className="px-6 py-4">

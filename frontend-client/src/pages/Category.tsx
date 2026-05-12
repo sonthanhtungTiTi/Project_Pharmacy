@@ -118,9 +118,13 @@ function Category({ categoryId, onBackHome, onOpenProductDetail }: CategoryPageP
 		return products[0]?.categoryName || 'Danh mục'
 	}, [categoryId, categories, products])
 
-	const extractFirstImage = (images: string) => {
+	const extractFirstImage = (images: string | string[]) => {
 		if (!images) {
 			return ''
+		}
+
+		if (Array.isArray(images)) {
+			return images[0]?.trim() || ''
 		}
 
 		return images
@@ -227,6 +231,7 @@ function Category({ categoryId, onBackHome, onOpenProductDetail }: CategoryPageP
 										sale={meta.discountLabel}
 										soldCount={meta.soldCount}
 										totalCount={meta.totalCount}
+										requiresPrescription={item.requiresPrescription}
 										onViewDetail={onOpenProductDetail}
 									/>
 								)

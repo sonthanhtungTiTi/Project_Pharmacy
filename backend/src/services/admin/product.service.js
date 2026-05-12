@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const QRCode = require('qrcode')
 
 const Product = require('../../models/product.model')
 const Category = require('../../models/category.model')
@@ -155,16 +156,29 @@ const listProducts = async ({ page = 1, limit = 20, search, categoryId, status =
  * Chi tiết sản phẩm
  */
 const getProductDetail = async (productId) => {
-	if (!mongoose.Types.ObjectId.isValid(productId)) {
-		throw new AdminProductServiceError('productId không hợp lệ', 400)
+	let product = null
+
+	if (mongoose.Types.ObjectId.isValid(productId)) {
+		product = await Product.findById(productId)
+	} else {
+		// Fallback: Tự động hiểu đây là mã thuốc (medicineCode)
+		product = await Product.findOne({ medicineCode: productId })
 	}
 
-	const product = await Product.findById(productId)
 	if (!product) {
 		throw new AdminProductServiceError('Sản phẩm không tồn tại', 404)
 	}
 
-	return serializeProduct(product)
+	const serialized = serializeProduct(product)
+
+	try {
+		// Tạo mã QR chứa medicineCode dưới dạng Base64
+		serialized.qrCode = await QRCode.toDataURL(String(serialized.medicineCode))
+	} catch (err) {
+		serialized.qrCode = null
+	}
+
+	return serialized
 }
 
 /**

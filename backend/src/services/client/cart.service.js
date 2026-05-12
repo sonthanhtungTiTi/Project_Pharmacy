@@ -40,7 +40,7 @@ const syncCartItemsWithProducts = async (cart) => {
 		_id: { $in: productIds },
 		isActive: { $ne: false },
 	})
-		.select('_id productName medicineCode images price')
+		.select('_id productName medicineCode images price requiresPrescription')
 		.lean()
 
 	const productMap = new Map(products.map((product) => [String(product._id), product]))
@@ -58,12 +58,14 @@ const syncCartItemsWithProducts = async (cart) => {
 		const productName = product.productName || item.productName
 		const productImage = extractFirstImage(product.images)
 		const medicineCode = product.medicineCode || ''
+		const requiresPrescription = product.requiresPrescription || false
 
 		if (
 			item.unitPrice !== unitPrice ||
 			item.productName !== productName ||
 			item.productImage !== productImage ||
-			item.medicineCode !== medicineCode
+			item.medicineCode !== medicineCode ||
+			item.requiresPrescription !== requiresPrescription
 		) {
 			hasChanges = true
 		}
@@ -74,6 +76,7 @@ const syncCartItemsWithProducts = async (cart) => {
 			productName,
 			productImage,
 			medicineCode,
+			requiresPrescription,
 		})
 	}
 
@@ -100,6 +103,7 @@ const serializeCart = (cartDoc) => {
 			medicineCode: item.medicineCode || '',
 			productName: item.productName,
 			productImage: item.productImage || '',
+			requiresPrescription: item.requiresPrescription || false,
 			unitPrice,
 			quantity,
 			lineTotal,
@@ -169,12 +173,14 @@ const addItemToCart = async (userId, { productId, quantity = 1 }) => {
 		cart.items[itemIndex].productName = product.productName
 		cart.items[itemIndex].productImage = extractFirstImage(product.images)
 		cart.items[itemIndex].medicineCode = product.medicineCode || ''
+		cart.items[itemIndex].requiresPrescription = product.requiresPrescription || false
 	} else {
 		cart.items.push({
 			productId: product._id,
 			medicineCode: product.medicineCode || '',
 			productName: product.productName,
 			productImage: extractFirstImage(product.images),
+			requiresPrescription: product.requiresPrescription || false,
 			unitPrice,
 			quantity: normalizedQuantity,
 		})

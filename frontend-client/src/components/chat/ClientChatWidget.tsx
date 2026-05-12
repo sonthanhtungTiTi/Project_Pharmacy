@@ -538,7 +538,8 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 							</div>
 						) : (
 							<div className="space-y-2">
-								{messages.map((message) => {
+								{messages.map((message, index) => {
+                                    const isLastMessage = index === messages.length - 1
 									const isUser = message.senderType === 'user'
 									const isSystem = message.senderType === 'system'
 									const isAdmin = message.senderType === 'admin'
@@ -568,6 +569,18 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 															}`}
 													>
 														<p className="text-sm leading-5">{message.content}</p>
+                                                        {message.meta?.responseCategory === 'suggest_human' && conversation?.status === 'ai' && isLastMessage && (
+                                                            <div className="mt-3">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleRequestHuman}
+                                                                    disabled={requestingHuman || loading}
+                                                                    className="w-full rounded-lg bg-green-500 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:opacity-60"
+                                                                >
+                                                                    Yêu cầu dược sĩ tư vấn
+                                                                </button>
+                                                            </div>
+                                                        )}
 														{productSuggestions.length > 0 && (
 															<div className="mt-3 grid gap-2.5">
 																{productSuggestions.map((product) => (

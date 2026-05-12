@@ -12,6 +12,7 @@ const vnpayRoutes = require('./vnpay.route')
 const consultationRoutes = require('./consultation.route')
 const staffRoutes = require('./staff.route')
 const chatRoutes = require('./chat.route')
+const prescriptionRoutes = require('./prescription.route')
 
 const router = express.Router()
 
@@ -29,5 +30,6 @@ router.use('/vnpay', vnpayRoutes)
 router.use('/consultations', consultationRoutes)
 router.use('/staff', staffRoutes)
 router.use('/chat', chatRoutes)
+router.use('/prescriptions', prescriptionRoutes)
 
 module.exports = router

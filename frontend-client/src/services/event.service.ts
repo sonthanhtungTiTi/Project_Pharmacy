@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '')
+
 
 export interface EventProduct {
 	id: string
@@ -8,6 +8,7 @@ export interface EventProduct {
 	discountLabel?: string
 	image: string
 	medicineCode: string
+	requiresPrescription?: boolean
 }
 
 export interface EventData {

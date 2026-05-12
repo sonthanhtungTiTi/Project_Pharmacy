@@ -12,7 +12,7 @@ interface MedicineFormProps {
   onCancel: () => void
 }
 
-type FormFieldValue = string | number | Blob | File | string[]
+type FormFieldValue = string | number | Blob | File | string[] | boolean
 type FormDataState = Record<string, FormFieldValue>
 
 const buildInitialFormData = (medicine?: Product) => ({
@@ -20,19 +20,22 @@ const buildInitialFormData = (medicine?: Product) => ({
   productName: medicine?.productName || '',
   price: medicine?.price !== undefined ? String(medicine.price) : '',
   usageSummary: medicine?.usageSummary || medicine?.description || '',
-  mainIngredients: medicine?.mainIngredients || medicine?.activeIngredient || medicine?.ingredients || '',
+  mainIngredients: medicine?.mainIngredients || medicine?.activeIngredient || '',
   targetUsers: medicine?.targetUsers || '',
   brand: medicine?.brand || '',
   manufacturer: medicine?.manufacturer || '',
   ingredients: medicine?.ingredients || '',
   usage: medicine?.usage || '',
-  dosage: medicine?.dosage || medicine?.usage || '',
+  dosage: medicine?.dosage || '',
   contraindications: medicine?.contraindications || '',
   sideEffects: medicine?.sideEffects || '',
-  storage: medicine?.storage || medicine?.additionalInfo || '',
+  precautions: medicine?.precautions || '',
+  storage: medicine?.storage || '',
   packaging: medicine?.packaging || '',
   expiry: medicine?.expiry || '',
+  description: medicine?.description || '',
   images: Array.isArray(medicine?.images) ? medicine.images.join('; ') : (medicine?.images || ''),
+  requiresPrescription: medicine?.requiresPrescription || false,
 })
 
 const normalizeSavedProduct = (payload: any): Product => {
@@ -121,10 +124,12 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
   }, [medicine])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }))
   }
 
@@ -308,7 +313,7 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
                 value={formData.price}
                 onChange={handleChange}
                 min="0"
-                step="1000"
+                step="any"
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Ví dụ: 52500"
               />
@@ -360,27 +365,88 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
                 placeholder="https://example.com/image1.jpg; https://example.com/image2.jpg"
               />
             </div>
+
+            <div className="md:col-span-2 flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                id="requiresPrescription"
+                name="requiresPrescription"
+                checked={Boolean(formData.requiresPrescription)}
+                onChange={handleChange}
+                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="requiresPrescription" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                Sản phẩm bắt buộc phải có đơn thuốc của bác sĩ (Cảnh báo khi mua hàng)
+              </label>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Thương Hiệu</label>
+              <input
+                type="text"
+                name="brand"
+                value={formData.brand}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Tên thương hiệu"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Quy Cách Đóng Gói</label>
+              <input
+                type="text"
+                name="packaging"
+                value={formData.packaging}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ví dụ: Hộp 3 vỉ x 10 viên"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Đối Tượng Sử Dụng</label>
+              <input
+                type="text"
+                name="targetUsers"
+                value={formData.targetUsers}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ví dụ: Người lớn, Trẻ em trên 12 tuổi"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Hạn Sử Dụng (Thông tin)</label>
+              <input
+                type="text"
+                name="expiry"
+                value={formData.expiry}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ví dụ: 36 tháng kể từ NSX"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Mô Tả Sử Dụng</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Mô Tả Ngắn (Hiển thị đầu trang)</label>
             <textarea
               name="usageSummary"
               value={formData.usageSummary}
               onChange={handleChange}
-              rows={3}
+              rows={2}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Mô tả ngắn về công dụng"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Thành Phần Chính</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Thành Phần (Ngắn gọn)</label>
             <textarea
               name="mainIngredients"
               value={formData.mainIngredients}
               onChange={handleChange}
-              rows={3}
+              rows={2}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Các thành phần chính"
             />
@@ -388,28 +454,87 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Thành Phần Chi Tiết</label>
+              <textarea
+                name="ingredients"
+                value={formData.ingredients}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Cách Dùng</label>
+              <textarea
+                name="usage"
+                value={formData.usage}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Liều Dùng</label>
               <textarea
                 name="dosage"
                 value={formData.dosage}
                 onChange={handleChange}
-                rows={4}
+                rows={3}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ví dụ: 2 viên/lần, 2 lần/ngày"
               />
             </div>
-
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Chống Chỉ Định</label>
+              <textarea
+                name="contraindications"
+                value={formData.contraindications}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Tác Dụng Phụ</label>
+              <textarea
+                name="sideEffects"
+                value={formData.sideEffects}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Lưu Ý / Thận Trọng</label>
+              <textarea
+                name="precautions"
+                value={formData.precautions}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Bảo Quản</label>
               <textarea
                 name="storage"
                 value={formData.storage}
                 onChange={handleChange}
-                rows={4}
+                rows={3}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Nơi khô, dưới 30°C"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Mô Tả Chi Tiết (Bài viết dài)</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={4}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Nội dung bài viết chi tiết..."
+            />
           </div>
 
           <div className="sticky bottom-0 -mx-6 border-t border-gray-200 bg-white px-6 pt-4 md:-mx-8 md:px-8">

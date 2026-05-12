@@ -6,6 +6,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import type { AuthUser } from '../../services/auth.service'
 import type { ProductItem } from '../../services/product.service'
 import CartBadge from '../ui/cart-badge'
+import ImageUploadModal from '../ui/ImageUploadModal'
 
 interface HeaderProps {
 	authUser: AuthUser | null
@@ -50,6 +51,7 @@ function Header({
 }: HeaderProps) {
 	const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
 	const [isSearchOpen, setIsSearchOpen] = useState(false)
+	const [isImageSearchOpen, setIsImageSearchOpen] = useState(false)
 	const searchContainerRef = useRef<HTMLDivElement | null>(null)
 
 	const hasSearchKeyword = searchKeyword.trim().length > 0
@@ -154,7 +156,13 @@ function Header({
 									}}
 									className="w-full bg-transparent text-sm text-slate-700 outline-none"
 								/>
-								<CameraAltIcon sx={{ position: 'absolute', right: 12, fontSize: 20, color: 'rgb(120, 113, 108)' }} />
+								<button 
+									type="button" 
+									onClick={() => setIsImageSearchOpen(true)}
+									className="absolute right-3 flex h-full items-center text-slate-500 hover:text-green-600 transition"
+								>
+									<CameraAltIcon sx={{ fontSize: 20 }} />
+								</button>
 							</div>
 
 							{shouldShowSearchPopover && (
@@ -180,7 +188,7 @@ function Header({
 											>
 												<div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
 													<img
-														src={item.images?.split(';')[0]?.trim() || 'https://via.placeholder.com/80x80?text=SP'}
+														src={(typeof item.images === 'string' ? item.images.split(';')[0]?.trim() : item.images?.[0]?.trim()) || 'https://via.placeholder.com/80x80?text=SP'}
 														alt={item.productName}
 														className="h-full w-full object-cover"
 													/>
@@ -231,6 +239,23 @@ function Header({
 					</div>
 				</div>
 			</header>
+
+			<ImageUploadModal 
+				isOpen={isImageSearchOpen} 
+				onClose={() => setIsImageSearchOpen(false)} 
+				onSearchResults={(results) => {
+					// You can either open the search popover with the results, 
+					// or redirect to a search page. For now, let's just trigger 
+					// the search behavior if possible, or navigate.
+					// Since we don't have access to the parent's setState for results,
+					// let's pass a custom event or navigate.
+					// For simplicity, we can dispatch a custom event that the parent listens to,
+					// or redirect to `/tim-kiem?image=true` and store results in sessionStorage.
+					sessionStorage.setItem('imageSearchResults', JSON.stringify(results))
+					window.history.pushState({}, '', '/tim-kiem?imageSearch=true')
+					window.dispatchEvent(new PopStateEvent('popstate'))
+				}}
+			/>
 		</>
 	)
 }
