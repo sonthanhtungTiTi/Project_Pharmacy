@@ -341,7 +341,11 @@ export default function MedicineList({ categoryId, categoryName }: MedicineListP
                     const totalStock = getTotalStock(medicine)
 
                     return (
-                      <tr key={medicineId || medicine.medicineCode} className="group hover:bg-slate-50">
+                      <tr 
+                        key={medicineId || medicine.medicineCode} 
+                        className="group hover:bg-slate-50 cursor-pointer"
+                        onClick={() => handleEditMedicine(medicine)}
+                      >
                         <td className="px-4 py-5 align-top">
                           <span className="rounded bg-gray-100 px-2.5 py-1.5 font-mono text-xs text-gray-700">
                             {medicine.medicineCode || '-'}
@@ -354,7 +358,8 @@ export default function MedicineList({ categoryId, categoryName }: MedicineListP
                               {hasImage ? (
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation()
                                     const allImages = extractAllImages(medicine.images)
                                     setLightboxData({ images: allImages, index: 0 })
                                   }}
@@ -420,7 +425,10 @@ export default function MedicineList({ categoryId, categoryName }: MedicineListP
                         <td className="sticky right-0 z-10 bg-white/95 px-4 py-5 backdrop-blur-sm group-hover:bg-slate-50">
                           <div className="flex items-center justify-center gap-1">
                             <button
-                              onClick={() => handleEditMedicine(medicine)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEditMedicine(medicine)
+                              }}
                               className="rounded bg-blue-100 px-2.5 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-200"
                               title="Sửa"
                             >
@@ -428,7 +436,10 @@ export default function MedicineList({ categoryId, categoryName }: MedicineListP
                               Sửa
                             </button>
                             <button
-                              onClick={() => setDeleteConfirm(medicineId)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDeleteConfirm(medicineId)
+                              }}
                               disabled={!medicineId}
                               className="rounded bg-red-100 px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
                               title="Xóa"

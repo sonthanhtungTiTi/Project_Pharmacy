@@ -14,6 +14,7 @@ import Customers from './pages/Customers'
 import Reports from './pages/Reports'
 import Support from './pages/Support'
 import Consultations from './pages/Consultations'
+import StockCheck from './pages/StockCheck'
 import AdminLayout from './components/layout/AdminLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import VideoCallOverlay from './components/calls/VideoCallOverlay'
@@ -322,6 +323,17 @@ function App() {
           />
 
           <Route
+            path="/stock-check"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <StockCheck />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/customers"
             element={
               <ProtectedRoute>
@@ -367,7 +379,7 @@ function App() {
 
           {/* Redirect root based on auth state to avoid dashboard flash for logged-out users */}
           <Route path="/" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />} />
-          
+
           {/* Catch all */}
           <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />} />
         </Routes>

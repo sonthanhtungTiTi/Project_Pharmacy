@@ -15,6 +15,7 @@ import {
   faRightFromBracket,
   faUsers,
   faWarehouse,
+  faBarcode,
   faCalendarCheck,
   faHeadset,
 } from '@fortawesome/free-solid-svg-icons'
@@ -45,6 +46,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Đơn Hàng', icon: faFileInvoice, path: '/orders' },
     { label: 'Sản Phẩm', icon: faPills, path: '/products' },
     { label: 'Kho Hàng', icon: faWarehouse, path: '/inventory' },
+    { label: 'Kiểm Kho', icon: faBarcode, path: '/stock-check' },
     { label: 'Người Dùng', icon: faUsers, path: '/customers' },
     { label: 'Báo Cáo', icon: faChartPie, path: '/reports' },
     { label: 'Tư Vấn', icon: faCalendarCheck, path: '/consultations' },
@@ -55,9 +57,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
       <div
-        className={`relative flex flex-col bg-white shadow-lg transition-all duration-300 ease-in-out ${
-          isSidebarCollapsed ? 'w-20' : 'w-64'
-        }`}
+        className={`relative flex flex-col bg-white shadow-lg transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'
+          }`}
       >
         <button
           type="button"
@@ -72,14 +73,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Logo */}
         <div
-          className={`border-b transition-all duration-300 ${
-            isSidebarCollapsed ? 'px-3 py-6' : 'px-6 py-8'
-          }`}
+          className={`border-b transition-all duration-300 ${isSidebarCollapsed ? 'px-3 py-6' : 'px-6 py-8'
+            }`}
         >
           <div
-            className={`flex items-center font-bold text-xl text-blue-600 ${
-              isSidebarCollapsed ? 'justify-center' : 'gap-2'
-            }`}
+            className={`flex items-center font-bold text-xl text-blue-600 ${isSidebarCollapsed ? 'justify-center' : 'gap-2'
+              }`}
           >
             <FontAwesomeIcon icon={faCapsules} className="text-lg" />
             {!isSidebarCollapsed && <span>Clinical Azure</span>}
@@ -93,13 +92,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`group relative flex w-full items-center rounded-lg py-3 transition-all duration-300 ${
-                isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4'
-              } ${
-                location.pathname === item.path
+              className={`group relative flex w-full items-center rounded-lg py-3 transition-all duration-300 ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4'
+                } ${location.pathname === item.path
                   ? 'bg-blue-50 font-medium text-blue-700'
                   : 'text-gray-700 hover:bg-blue-50'
-              }`}
+                }`}
               title={isSidebarCollapsed ? item.label : undefined}
             >
               <FontAwesomeIcon icon={item.icon} className="w-5" />
@@ -117,9 +114,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className={`border-t py-4 ${isSidebarCollapsed ? 'px-2' : 'px-4'}`}>
           <button
             onClick={handleLogout}
-            className={`group relative flex w-full items-center rounded-lg py-3 text-red-600 transition-all duration-300 hover:bg-red-50 ${
-              isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4'
-            }`}
+            className={`group relative flex w-full items-center rounded-lg py-3 text-red-600 transition-all duration-300 hover:bg-red-50 ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4'
+              }`}
             title={isSidebarCollapsed ? 'Logout' : undefined}
           >
             <FontAwesomeIcon icon={faRightFromBracket} className="w-5" />
