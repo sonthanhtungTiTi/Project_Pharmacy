@@ -1,8 +1,8 @@
 const axios = require('axios')
 const mongoose = require('mongoose')
 
-// const ChatConversation = require('../../models/chatConversation.model')
-// const ChatMessage = require('../../models/chatMessage.model')
+const ChatConversation = require('../../models/chatConversation.model')
+const ChatMessage = require('../../models/chatMessage.model')
 const Product = require('../../models/product.model')
 const Order = require('../../models/order.model')
 const User = require('../../models/user.model')
@@ -311,22 +311,29 @@ const callOllama = async ({ prompt, system = '', temperature = 0.2, format } = {
 const findOrCreateActiveConversation = async (clientId) => {
     ensureObjectId(clientId, 'clientId')
 
-    // Always return a virtual conversation without database persistence
-    const virtualConversation = {
-        _id: new mongoose.Types.ObjectId(),
-        sessionId: createSessionId(clientId),
-        clientId,
-        status: 'ai',
-        lastIntent: INTENTS.GENERAL_FAQ,
-        lastAction: INTENTS.GENERAL_FAQ,
-        metadata: {},
-        unreadForClient: 0,
-        unreadForAdmin: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+    let conversation = await ChatConversation.findOne({ clientId })
+        .sort({ updatedAt: -1 })
+        .populate('clientId', 'fullName email phone role')
+
+    if (!conversation) {
+        conversation = await ChatConversation.create({
+            sessionId: createSessionId(clientId),
+            clientId,
+            status: 'ai',
+            lastIntent: INTENTS.GENERAL_FAQ,
+            lastAction: INTENTS.GENERAL_FAQ,
+            metadata: {},
+            unreadForClient: 0,
+            unreadForAdmin: 0,
+        })
+        await conversation.populate('clientId', 'fullName email phone role')
+    } else if (conversation.status === 'closed') {
+        conversation.status = 'ai'
+        conversation.lastAction = INTENTS.GENERAL_FAQ
+        await conversation.save()
     }
 
-    return virtualConversation
+    return conversation
 }
 
 const appendMessage = async ({
@@ -343,9 +350,7 @@ const appendMessage = async ({
         throw new ChatServiceError('Message content is required', 400)
     }
 
-    // Return a virtual message object without saving to the database
-    const message = {
-        _id: new mongoose.Types.ObjectId(),
+    const message = await ChatMessage.create({
         conversationId,
         senderType,
         senderId: senderId && mongoose.Types.ObjectId.isValid(senderId) ? senderId : null,
@@ -354,69 +359,102 @@ const appendMessage = async ({
         intent,
         action,
         meta,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    }
+    })
 
     return message
 }
 
 const getConversationMessages = async (conversationId, limit = 40) => {
-    // Return an empty array as we no longer persist messages
-    return []
+    const messages = await ChatMessage.find({ conversationId })
+        .sort({ createdAt: -1 })
+        .limit(Math.min(MAX_LIMIT, Math.max(1, limit)))
+        .lean()
+
+    return messages.reverse()
 }
 
 const touchConversation = async (conversationId, payload = {}) => {
-    // Return a virtual conversation object based on the payload
-    return {
-        _id: conversationId,
+    const updatePayload = {
         ...payload,
         lastMessageAt: new Date(),
-        updatedAt: new Date(),
     }
+
+    const updated = await ChatConversation.findByIdAndUpdate(
+        conversationId,
+        { $set: updatePayload },
+        { new: true }
+    ).populate('clientId', 'fullName email phone role')
+        .populate('assignedStaffId', 'fullName email phone role')
+
+    return updated
 }
 
 const getClientConversationSnapshot = async (clientId, { limit = 40 } = {}) => {
     const conversation = await findOrCreateActiveConversation(clientId)
-    const messages = [] // No persistent messages
+    const messages = await getConversationMessages(conversation._id, limit)
 
     return {
         conversation: serializeConversation(conversation),
-        messages,
+        messages: messages.map(serializeMessage),
     }
 }
 
 const getClientMessages = async (clientId, conversationId, { limit = 40 } = {}) => {
-    // Return a virtual state as we don't persist
-    const conversation = {
+    ensureObjectId(clientId, 'clientId')
+    ensureObjectId(conversationId, 'conversationId')
+
+    const conversation = await ChatConversation.findOne({
         _id: conversationId,
         clientId,
-        status: 'ai',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+    }).populate('clientId', 'fullName email phone role')
+        .populate('assignedStaffId', 'fullName email phone role')
+
+    if (!conversation) {
+        throw new ChatServiceError('Conversation not found', 404)
     }
+
+    const messages = await getConversationMessages(conversation._id, limit)
 
     return {
         conversation: serializeConversation(conversation),
-        messages: [],
+        messages: messages.map(serializeMessage),
     }
 }
 
 const requestHumanFromClient = async (clientId, conversationId = null, reason = '') => {
     ensureObjectId(clientId, 'clientId')
 
-    // Always create a new virtual conversation for the request
-    const conversation = {
-        _id: conversationId || new mongoose.Types.ObjectId(),
-        clientId,
-        status: 'human_pending',
-        lastAction: INTENTS.CALL_HUMAN,
-        metadata: {
-            lastHumanRequestReason: String(reason || '').trim(),
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
+    let conversation
+    if (conversationId) {
+        conversation = await ChatConversation.findOne({ _id: conversationId, clientId })
     }
+
+    if (!conversation) {
+        conversation = await ChatConversation.findOne({ clientId }).sort({ updatedAt: -1 })
+    }
+
+    if (!conversation) {
+        conversation = await ChatConversation.create({
+            sessionId: createSessionId(clientId),
+            clientId,
+            status: 'human_pending',
+            lastAction: INTENTS.CALL_HUMAN,
+            metadata: {
+                lastHumanRequestReason: String(reason || '').trim(),
+            },
+        })
+    } else {
+        conversation.status = 'human_pending'
+        conversation.lastAction = INTENTS.CALL_HUMAN
+        conversation.metadata = {
+            ...conversation.metadata,
+            lastHumanRequestReason: String(reason || '').trim(),
+        }
+        await conversation.save()
+    }
+
+    await conversation.populate('clientId', 'fullName email phone role')
+    await conversation.populate('assignedStaffId', 'fullName email phone role')
 
     const systemMessage = await appendMessage({
         conversationId: conversation._id,
@@ -447,12 +485,12 @@ const ensureStaffCanAccessConversation = async (staffId, conversationId) => {
         throw new ChatServiceError('Only support staff can access this conversation', 403)
     }
 
-    // Return a virtual conversation
-    const conversation = {
-        _id: conversationId,
-        status: 'human',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+    const conversation = await ChatConversation.findById(conversationId)
+        .populate('clientId', 'fullName email phone role')
+        .populate('assignedStaffId', 'fullName email phone role')
+
+    if (!conversation) {
+        throw new ChatServiceError('Conversation not found', 404)
     }
 
     return { staff, conversation }
@@ -474,7 +512,7 @@ const assignConversationToStaff = async (conversationId, { staffId, staffName = 
         senderType: 'system',
         senderId: staff._id,
         senderName: nextStaffName,
-        content: `Nhan vien ${nextStaffName} da tham gia ho tro.`,
+        content: 'Đã có nhân viên hỗ trợ',
         action: INTENTS.CALL_HUMAN,
     })
 
@@ -497,7 +535,7 @@ const closeConversationByStaff = async (conversationId, staffId) => {
         conversationId: conversation._id,
         senderType: 'system',
         senderId: staffId,
-        content: 'Cuoc tro chuyen da duoc ket thuc boi nhan vien.',
+        content: 'Đã kết thúc tư vấn',
         action: 'CLOSED_BY_STAFF',
     })
 
@@ -508,25 +546,72 @@ const closeConversationByStaff = async (conversationId, staffId) => {
 }
 
 const listConversationsForAdmin = async ({ status = 'all', page = 1, limit = 20, keyword = '' } = {}) => {
-    // Return empty results as we don't persist conversations
+    const filter = {}
+
+    if (status !== 'all') {
+        filter.status = status
+    }
+
+    if (keyword) {
+        const regex = new RegExp(escapeRegex(keyword), 'i')
+        filter.$or = [{ sessionId: regex }]
+    }
+
+    const numericPage = Math.max(1, Number(page) || 1)
+    const numericLimit = Math.min(MAX_LIMIT, Math.max(1, Number(limit) || DEFAULT_LIMIT))
+    const skip = (numericPage - 1) * numericLimit
+
+    const [docs, total] = await Promise.all([
+        ChatConversation.find(filter)
+            .sort({ lastMessageAt: -1, updatedAt: -1 })
+            .skip(skip)
+            .limit(numericLimit)
+            .populate('clientId', 'fullName email phone role')
+            .populate('assignedStaffId', 'fullName email phone role')
+            .lean(),
+        ChatConversation.countDocuments(filter),
+    ])
+
+    // Lấy tin nhắn mới nhất
+    const conversationIds = docs.map(doc => doc._id)
+    const latestMessages = await ChatMessage.aggregate([
+        { $match: { conversationId: { $in: conversationIds } } },
+        { $sort: { createdAt: -1 } },
+        { $group: { _id: "$conversationId", latestMessage: { $first: "$$ROOT" } } }
+    ])
+
+    const messageMap = new Map()
+    for (const item of latestMessages) {
+        messageMap.set(String(item._id), item.latestMessage)
+    }
+
+    const items = docs.map((doc) => {
+        const serialized = serializeConversation(doc)
+        const latestMsg = messageMap.get(String(doc._id))
+        return {
+            ...serialized,
+            latestMessage: latestMsg ? serializeMessage(latestMsg) : null
+        }
+    })
+
     return {
-        items: [],
+        items,
         pagination: {
-            page: 1,
-            limit: 20,
-            total: 0,
-            totalPages: 1,
+            page: numericPage,
+            limit: numericLimit,
+            total,
+            totalPages: Math.ceil(total / numericLimit),
         },
     }
 }
 
 const getConversationMessagesForAdmin = async (staffId, conversationId, { limit = 80 } = {}) => {
     const { conversation } = await ensureStaffCanAccessConversation(staffId, conversationId)
-    const messages = [] // No persistent messages
+    const messages = await getConversationMessages(conversation._id, limit)
 
     return {
         conversation: serializeConversation(conversation),
-        messages,
+        messages: messages.map(serializeMessage),
     }
 }
 
@@ -593,6 +678,12 @@ const tokenizeQuery = (text) => {
     return normalized
         .split(/\s+/)
         .filter((token) => token.length >= 3 && !QUERY_STOPWORDS.has(token))
+}
+
+const createWordRegex = (word) => {
+    // Sử dụng Unicode property escapes (\p{L}) để giả lập \b cho mọi ngôn ngữ kể cả Tiếng Việt
+    // Đảm bảo từ khóa không bị dính vào một từ khác (ví dụ: "ứng" không match "chứng")
+    return new RegExp(`(?<=^|[^\\p{L}\\p{N}_])(${escapeRegex(word)})(?=[^\\p{L}\\p{N}_]|$)`, 'iu')
 }
 
 const hasForbiddenOperator = (value) => {
@@ -780,52 +871,163 @@ const executeReadOnlyProductQueryPlan = async (rawPlan) => {
     return query.lean()
 }
 
+const createVietnameseRegexStr = (str) => {
+    const map = {
+        'a': '[aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬ]',
+        'e': '[eEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆ]',
+        'i': '[iIìÌỉỈĩĨíÍịỊ]',
+        'o': '[oOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢ]',
+        'u': '[uUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰ]',
+        'y': '[yYỳỲỷỶỹỸýÝỵỴ]',
+        'd': '[dDđĐ]'
+    };
+    const normalized = String(str).toLowerCase();
+    let regexStr = '';
+    for (const char of normalized) {
+        if (map[char]) regexStr += map[char];
+        else regexStr += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    return regexStr;
+};
+
 const searchProductsByLocalRules = async ({ message, symptomKeyword = '' }) => {
-    const candidateQueries = [symptomKeyword, message].map((item) => String(item || '').trim()).filter(Boolean)
-    const conditions = []
+    const normalizedMessage = normalizeText(message);
+    const activeKeywords = new Set();
 
-    for (const entry of candidateQueries) {
-        const normalized = normalizeText(entry)
-        if (!normalized) {
-            continue
-        }
+    // 1. Lấy từ khóa chính và tách nhỏ nó ra (Phòng trường hợp AI gộp bệnh)
+    if (symptomKeyword) {
+        const normalizedSymptom = normalizeText(symptomKeyword);
+        activeKeywords.add(normalizedSymptom);
+        
+        const symptomTokens = tokenizeQuery(normalizedSymptom);
+        symptomTokens.forEach(t => activeKeywords.add(t));
+    }
 
-        const phraseRegex = new RegExp(escapeRegex(normalized).replace(/\s+/g, '.*'), 'i')
-        conditions.push({ productName: phraseRegex })
-        conditions.push({ medicineName: phraseRegex })
-        conditions.push({ usageSummary: phraseRegex })
-        conditions.push({ usage: phraseRegex })
-        conditions.push({ description: phraseRegex })
-        conditions.push({ activeIngredient: phraseRegex })
-        conditions.push({ ingredients: phraseRegex })
-        conditions.push({ mainIngredients: phraseRegex })
+    // 2. BẮT TỪ KHÓA DỰA TRÊN DANH MỤC SẢN PHẨM THỰC TẾ
+    const medicalTerms = [
+        // --- 1. Cơ xương khớp, gút ---
+        'co xuong khop', 'xuong khop', 'gut', 'gout', 'viem khop', 'thoai hoa khop', 
+        'dau khop', 'dau lung', 'dau vai gay', 'dau co', 'nhuc moi', 'bong gan', 'canxi',
 
-        for (const token of tokenizeQuery(entry)) {
-            const tokenRegex = new RegExp(escapeRegex(token), 'i')
-            conditions.push({ productName: tokenRegex })
-            conditions.push({ medicineName: tokenRegex })
-            conditions.push({ usageSummary: tokenRegex })
-            conditions.push({ usage: tokenRegex })
-            conditions.push({ description: tokenRegex })
-            conditions.push({ activeIngredient: tokenRegex })
-            conditions.push({ ingredients: tokenRegex })
-            conditions.push({ mainIngredients: tokenRegex })
+        // --- 2. Da liễu, dị ứng ---
+        'da lieu', 'di ung', 'giam ngua', 'noi me day', 'man ngua', 'rom say', 'ham ta', 
+        'mun nhot', 'tri mun', 'nam da', 'lang ben', 'hac lao', 'con trung', 'muoi dot', 
+        'muoi chich', 'kien ba khoang', 'bong', 'tri seo',
+
+        // --- 3. Dầu, Cao Xoa, Miếng Dán ---
+        'dau gio', 'dau tram', 'dau khuynh diep', 'dau nong', 'dau cu la', 'xoa bop', 
+        'cao xoa', 'mieng dan', 'mieng dan ha sot', 'cao dan',
+
+        // --- 4. Giảm đau, hạ sốt, kháng viêm ---
+        'giam dau', 'ha sot', 'khang viem', 'chong viem', 'dau dau', 'nhuc dau', 
+        'dau rang', 'nhuc rang', 'dau bung',
+
+        // --- 5. Hô hấp ---
+        'ho hap', 'bo phe', 'tieu dom', 'giam ho', 'ho khan', 'ho dom', 'kho tho', 'hen suyen',
+
+        // --- 6. Kháng sinh, kháng nấm ---
+        'khang sinh', 'khang nam', 'nhiem trung', 'viem nhiem',
+
+        // --- 7. Mắt, tai mũi họng ---
+        'bo mat', 'nho mat', 'rua mat', 'kho mat', 'moi mat', 'dau mat do', 
+        'viem hong', 'dau hong', 'rat hong', 'viem xoang', 'viem mui', 'nghet mui', 
+        'ngat mui', 'so mui', 'chay nuoc mui', 'nuoc muoi sinh ly', 'nho mui', 'xit mui', 
+        'rua mui', 'nhiet mieng', 'viem nuou', 'chay mau chan rang', 'nuoc suc mieng',
+
+        // --- 8. Thần kinh, não bộ ---
+        'than kinh', 'nao bo', 'chong mat', 'buon non', 'say xe', 'roi loan tien dinh', 
+        'bo nao', 'hoat huyet', 'tuan hoan nao', 'an than', 'mat ngu',
+
+        // --- 9. Tiêu hóa, gan mật ---
+        'tieu hoa', 'gan mat', 'da day', 'ta trang', 'trao nguoc', 'viem loet', 
+        'tieu chay', 'tao bon', 'day hoi', 'kho tieu', 'chuong bung', 'men tieu hoa', 
+        'men vi sinh', 'bu nuoc', 'oresol', 'bo gan', 'mat gan', 'giai doc gan', 'tri',
+
+        // --- 10. Tiết niệu, sinh dục ---
+        'tiet nieu', 'sinh duc', 'viem duong tiet nieu', 'soi than', 'phu khoa', 
+        'dung dich ve sinh', 'bao cao su', 'gel boi tron', 'que thu thai',
+
+        // --- 11. Hỗ hợp (Vật tư y tế, Vitamin, Làm đẹp,...) ---
+        'vitamin', 'tang de khang', 'sat trung', 'povidine', 'oxy gia', 'con y te', 
+        'bang keo', 'bang gach', 'bong gon', 'khau trang', 'nhiet ke', 'sua rua mat', 
+        'bang ve sinh', 'dau goi', 'sua tam'
+    ];
+
+    for (const term of medicalTerms) {
+        if (normalizedMessage.includes(term)) {
+            activeKeywords.add(term);
         }
     }
 
-    if (conditions.length === 0) {
-        return []
+    const targetPhrases = Array.from(activeKeywords).filter(Boolean);
+    const conditions = [];
+
+    // 3. Build Regex thông minh cho cụm từ (Ưu tiên cao)
+    if (targetPhrases.length > 0) {
+        for (const phrase of targetPhrases) {
+            const vnRegexStr = createVietnameseRegexStr(phrase);
+            const regex = new RegExp(vnRegexStr, 'i');
+            conditions.push({ productName: regex });
+            conditions.push({ medicineName: regex });
+            conditions.push({ usageSummary: regex });
+            conditions.push({ categoryName: regex });
+        }
     }
 
-    return Product.find({
+    // 4. LUÔN LUÔN chạy Tokenizer để tách từng chữ (Bắt chính xác từng token)
+    const tokens = tokenizeQuery(normalizedMessage);
+    for (const token of tokens) {
+        const vnRegexStr = createVietnameseRegexStr(token);
+        const regex = new RegExp(vnRegexStr, 'i');
+        conditions.push({ productName: regex });
+        conditions.push({ usageSummary: regex });
+    }
+
+    if (conditions.length === 0) return [];
+
+    // 5. Query Database
+    const rawDocs = await Product.find({
         isActive: true,
         $or: conditions,
     })
-        .select(PRODUCT_DETAIL_FIELDS)
-        .sort({ updatedAt: -1 })
-        .limit(40)
-        .lean()
-}
+    .select(PRODUCT_DETAIL_FIELDS)
+    .lean();
+
+    // 6. Thuật toán Scoring thông minh
+    const scoredDocs = rawDocs.map(doc => {
+        let score = 0;
+        const normalizedName = normalizeText(doc.productName);
+        const textToSearch = [
+            normalizedName,
+            normalizeText(doc.usageSummary),
+            normalizeText(doc.categoryName)
+        ].join(' ');
+
+        if (targetPhrases.length > 0) {
+            targetPhrases.forEach(phrase => {
+                if (textToSearch.includes(phrase)) score += 10; 
+                if (normalizedName.includes(phrase)) score += 50; // Trúng tên cụm từ -> Lên Top
+                if (normalizeText(doc.categoryName).includes(phrase)) score += 20; // Trúng tên danh mục -> Cộng điểm mạnh
+                if (normalizeText(doc.usageSummary).includes(phrase)) score += 15; 
+            });
+        }
+
+        tokens.forEach(token => {
+            if (textToSearch.includes(token)) score += 2;
+            if (normalizedName.includes(token)) score += 5;
+        });
+
+        score += (doc.updatedAt ? new Date(doc.updatedAt).getTime() / 1000000000000 : 0);
+        return { ...doc, score };
+    });
+
+    scoredDocs.sort((a, b) => b.score - a.score);
+
+    return scoredDocs.slice(0, 40).map(doc => {
+        delete doc.score;
+        return doc;
+    });
+};
 
 const mergeProductsById = (...groups) => {
     const byId = new Map()
@@ -857,16 +1059,6 @@ const searchProductsForConsultation = async ({ message, symptomKeyword }) => {
 
     const localDocs = await searchProductsByLocalRules({ message, symptomKeyword })
     let merged = mergeProductsById(aiDocs, localDocs)
-
-    if (merged.length < 4) {
-        const recentDocs = await Product.find({ isActive: true })
-            .select(PRODUCT_DETAIL_FIELDS)
-            .sort({ updatedAt: -1 })
-            .limit(40)
-            .lean()
-
-        merged = mergeProductsById(merged, recentDocs)
-    }
 
     return {
         plan: aiPlan,
@@ -906,15 +1098,40 @@ const classifyClientMessage = async ({ message, history = [] }) => {
         .map((item) => `${item.senderType}: ${String(item.content || '').slice(0, 160)}`)
         .join('\n')
 
-    const systemPrompt = [
-        'Ban la AI phan loai tin nhan cho nha thuoc.',
-        'Chi tra ve JSON hop le, khong markdown.',
-        'Schema:',
-        '{"type":"social|consult","symptomKeyword":"string","reply":"string","needsHuman":true|false}',
-        'Neu la social: reply la loi chao ngan gon.',
-        'Neu la consult: symptomKeyword la trieu chung neu co, reply de rong.',
-    ].join(' ')
+   const systemPrompt = [
+        'Bạn là Trợ lý AI phân tích ngữ nghĩa của nhà thuốc T&Q. Trách nhiệm của bạn là đọc tin nhắn và phân loại chính xác ý định của khách. TUYỆT ĐỐI chỉ trả về chuỗi JSON với định dạng: {"type":"social"|"consult", "symptomKeyword":"string", "reply":"string", "needsHuman":true|false}',
+        'HÃY HỌC THUỘC 5 NHÓM TÌNH HUỐNG SAU VÀ BẮT CHƯỚC CÁCH PHÂN LOẠI:',
 
+        '--- NHÓM 1: HỎI THÔNG TIN SẢN PHẨM / THUỐC (needsHuman LUÔN LÀ false) ---',
+        'Lưu ý: Mọi câu hỏi có chữ "có... không", "dùng được không", "giá bao nhiêu" đều thuộc nhóm này.',
+        'Tin nhắn: "thuốc này có tác dụng phụ gì không?" -> {"type":"consult", "symptomKeyword":"tác dụng phụ", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "trẻ 5 tuổi có uống được loại này không bạn" -> {"type":"consult", "symptomKeyword":"trẻ 5 tuổi", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "uống cái này có bị buồn ngủ không" -> {"type":"consult", "symptomKeyword":"buồn ngủ", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "giá 1 hộp là bao nhiêu" -> {"type":"consult", "symptomKeyword":"giá", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "thuốc này uống trước hay sau khi ăn" -> {"type":"consult", "symptomKeyword":"cách dùng", "reply":"", "needsHuman":false}',
+
+        '--- NHÓM 2: KHAI BÁO TRIỆU CHỨNG, TÌM KIẾM SẢN PHẨM (needsHuman: false) ---',
+        'Lưu ý: Nếu khách VỪA CHÀO VỪA KHAI BỆNH, phải ưu tiên bắt bệnh. Bóc tách từ khóa cốt lõi vào symptomKeyword.',
+        'Tin nhắn: "tôi bị đau đầu sổ mũi từ hôm qua" -> {"type":"consult", "symptomKeyword":"đau đầu sổ mũi", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "chào bạn, bé nhà mình bị tiêu chảy" -> {"type":"consult", "symptomKeyword":"tiêu chảy", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "shop có bán vitamin c không" -> {"type":"consult", "symptomKeyword":"vitamin c", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "cho mình hỏi mua thuốc trị mụn nhọt" -> {"type":"consult", "symptomKeyword":"trị mụn nhọt", "reply":"", "needsHuman":false}',
+
+        '--- NHÓM 3: ĐÒI GẶP NGƯỜI THẬT HOẶC ĐỒNG Ý KẾT NỐI (needsHuman: true) ---',
+        'Tin nhắn: "cho tôi gặp nhân viên tư vấn" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
+        'Tin nhắn: "tôi muốn gặp bác sĩ" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
+        'Tin nhắn: "ok", "vâng", "ừ", "có", "dạ được" (chỉ trả lời ngắn gọn khi bot hỏi có muốn gặp không) -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
+
+        '--- NHÓM 4: KHIẾU NẠI, ĐƠN HÀNG, CẤP CỨU (Cần người thật xử lý -> needsHuman: true) ---',
+        'Tin nhắn: "tại sao tôi chưa nhận được hàng" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
+        'Tin nhắn: "uống thuốc vào bị nổi mẩn đỏ khắp người" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
+        'Tin nhắn: "shop giao sai thuốc cho tôi rồi" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
+
+        '--- NHÓM 5: GIAO TIẾP, HỎI ĐÁP NGOÀI LỀ (needsHuman: false) ---',
+        'Tin nhắn: "chào shop" -> {"type":"social", "symptomKeyword":"", "reply":"Chào bạn! Mình là Dược sĩ AI của T&Q. Bạn cần tìm thuốc hay tư vấn sức khỏe ạ?", "needsHuman":false}',
+        'Tin nhắn: "cảm ơn bạn nhiều" -> {"type":"social", "symptomKeyword":"", "reply":"Dạ không có chi ạ! Chúc bạn thật nhiều sức khỏe. Nếu cần gì thêm cứ nhắn mình nhé!", "needsHuman":false}',
+        'Tin nhắn: "phí ship thế nào vậy" -> {"type":"social", "symptomKeyword":"", "reply":"Dạ bên mình freeship cho đơn hàng từ 150k trở lên ạ.", "needsHuman":false}'
+    ].join(' ');
     const prompt = [
         `History:\n${compactHistory || '(empty)'}`,
         `User message: "${String(message || '').trim()}"`,
@@ -934,8 +1151,23 @@ const classifyClientMessage = async ({ message, history = [] }) => {
         const normalizedType = type === 'social' ? 'social' : type === 'consult' ? 'consult' : fallback.type
         const symptomKeyword = String(parsed.symptomKeyword || fallback.symptomKeyword || '').trim()
         const reply = String(parsed.reply || '').trim()
-        const needsHuman = Boolean(parsed.needsHuman) || fallback.needsHuman
+        let needsHuman = Boolean(parsed.needsHuman) || fallback.needsHuman
 
+        const msgToCheck = normalizeText(message);
+        const isInfoQuestion = msgToCheck.includes('co dung duoc khong') || 
+                               msgToCheck.includes('tre em') || 
+                               msgToCheck.includes('tac dung phu') || 
+                               msgToCheck.includes('ba bau') || 
+                               msgToCheck.includes('uong nhu the nao');
+        
+        if (isInfoQuestion) {
+            needsHuman = false; 
+        }
+        
+        // TUY NHIÊN: Đảm bảo khách gõ chữ "gặp nhân viên" thì vẫn chuyển máy bình thường
+        if (fallback.needsHuman) {
+            needsHuman = true; 
+        }
         if (normalizedType === 'social') {
             return {
                 type: 'social',
@@ -960,7 +1192,7 @@ const classifyClientMessage = async ({ message, history = [] }) => {
 
 const generateConsultReply = async ({ message, symptomKeyword, products }) => {
     if (!Array.isArray(products) || products.length === 0) {
-        return 'Khong tim thay san pham phu hop'
+        return 'Xin lỗi bạn, hiện tại hệ thống chưa tìm thấy sản phẩm nào phù hợp với mô tả của bạn. Bạn có muốn kết nối với nhân viên để được hỗ trợ tìm thuốc không?'
     }
 
     const summary = products
@@ -969,11 +1201,28 @@ const generateConsultReply = async ({ message, symptomKeyword, products }) => {
         .join('\n')
 
     const systemPrompt = [
-        'Ban la duoc si AI than thien cua nha thuoc T&Q.',
-        'Tra loi tieng Viet, ngan gon, thuc te, khong chan doan benh.',
-        'Can dua loi khuyen co ban va gioi thieu san pham phu hop.',
-        'Khong duoc che them thong tin ngoai du lieu da co.',
-    ].join(' ')
+        'Bạn là Dược sĩ AI chuyên nghiệp, tận tâm của hệ thống nhà thuốc T&Q.',
+        'Nhiệm vụ của bạn là tư vấn sức khỏe dựa trên triệu chứng của khách hàng và giới thiệu các sản phẩm có sẵn trong "Danh sách sản phẩm để gợi ý".',
+        'QUY TẮC TRẢ LỜI:',
+        '1. LUÔN LUÔN giao tiếp bằng Tiếng Việt có dấu, chuẩn ngữ pháp, giọng điệu ân cần.',
+        '2. Thấu cảm và đưa ra lời khuyên y tế: Nếu khách nói bệnh (VD: nhức đầu), hãy khuyên họ nghỉ ngơi, uống nhiều nước trước khi giới thiệu thuốc.',
+        '3. Giới thiệu sản phẩm: Dựa BẮT BUỘC vào danh sách sản phẩm được cung cấp. KHÔNG TỰ BỊA ra tên thuốc ngoài danh sách.',
+        '4. XỬ LÝ CÂU HỎI KHÓ (QUAN TRỌNG): Nếu câu hỏi quá phức tạp hoặc bạn KHÔNG CHẮC CHẮN 100% về mặt y khoa, TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ BỊA ĐẶT. Hãy trả lời theo mẫu sau:',
+        '"Dạ, đối với vấn đề của quý khách, để đảm bảo an toàn sức khỏe tuyệt đối, bạn có muốn mình kết nối với Dược sĩ/Bác sĩ chuyên môn của nhà thuốc để tư vấn trực tiếp cho bạn không ạ?"',
+        '5. Kết thúc bằng một câu mời thân thiện: "Bạn có thể tham khảo các sản phẩm mình gợi ý bên dưới, hoặc nhấn nút yêu cầu tư vấn nếu cần dược sĩ hỗ trợ thêm nhé!"',
+        '6.Nếu khách hỏi sâu về tác dụng phụ, độ tuổi sử dụng, tương tác thuốc... hãy tìm thông tin trong phần mô tả sản phẩm để trả lời.',
+        
+        '(--- PHẦN BỔ SUNG ĐỂ HỆ THỐNG XỬ LÝ LOGIC ---)',
+        '* LƯU Ý 1: Nếu bạn đã phải áp dụng Quy tắc 4 (Khuyên kết nối bác sĩ), bạn TUYỆT ĐỐI PHẢI BỎ QUA Quy tắc 3 và Quy tắc 5. KHÔNG ĐƯỢC vừa khuyên gặp bác sĩ lại vừa mời mua thuốc.',
+        '* LƯU Ý 2: Ở Quy tắc 6, nếu phần mô tả sản phẩm KHÔNG CÓ thông tin để trả lời, BẮT BUỘC chuyển sang dùng ngay câu trả lời của Quy tắc 4.',
+        '',
+        'HÃY XEM CÁC VÍ DỤ SAU ĐỂ HIỂU CÁCH VẬN DỤNG CÁC QUY TẮC TRÊN:',
+        'Ví dụ Khách hỏi bệnh: "Tôi bị đau đầu quá"',
+        'AI Trả lời (Dùng QT 2, 3, 5): "Dạ, bạn đang bị đau đầu thì nên dành thời gian nghỉ ngơi nơi yên tĩnh nhé. Bạn có thể tham khảo các sản phẩm giảm đau mình gợi ý bên dưới, hoặc nhấn nút yêu cầu tư vấn nếu cần dược sĩ hỗ trợ thêm nhé!"',
+        '',
+        'Ví dụ Khách hỏi câu khó: "Trẻ sơ sinh có bôi được thuốc này không?"',
+        'AI Trả lời (Dùng QT 4 - KHÔNG CÓ CÂU MỜI MUA THUỐC Ở DƯỚI): "Dạ, đối với vấn đề của quý khách, để đảm bảo an toàn sức khỏe tuyệt đối, bạn có muốn mình kết nối với Dược sĩ/Bác sĩ chuyên môn của nhà thuốc để tư vấn trực tiếp cho bạn không ạ?"'
+    ].join('\n');
 
     const prompt = [
         `Cau hoi cua khach: "${String(message || '').trim()}"`,
@@ -1045,7 +1294,6 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         throw new ChatServiceError('Message content is required', 400)
     }
 
-    // Always use a virtual conversation
     const conversation = await findOrCreateActiveConversation(clientId)
 
     const userMessage = await appendMessage({
@@ -1060,31 +1308,40 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
 
     const userMessagePayload = serializeMessage(userMessage)
 
-    // Stateless classification (history is empty)
-    const classification = await classifyClientMessage({
-        message: normalizedContent,
-        history: [],
-    })
-
-    if (classification.needsHuman) {
-        const humanFlow = await requestHumanFromClient(clientId, conversation._id, 'user_requested_human')
-
-        const botDoc = await appendMessage({
-            conversationId: conversation._id,
-            senderType: 'bot',
-            content: 'Minh da chuyen yeu cau sang nhan vien. Trong luc cho, minh van co the goi y san pham cho ban.',
-            intent: INTENTS.CALL_HUMAN,
-            action: INTENTS.CALL_HUMAN,
-            meta: {
-                responseCategory: 'handoff',
-            },
+    if (conversation.status === 'human' || conversation.status === 'human_pending') {
+        const updatedConversation = await touchConversation(conversation._id, {
+            unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1
         })
 
         return {
-            conversation: humanFlow.conversation,
+            conversation: serializeConversation(updatedConversation),
             userMessage: userMessagePayload,
-            botMessage: serializeMessage(botDoc),
-            systemMessage: humanFlow.systemMessage,
+            botMessage: null,
+            systemMessage: null,
+            requiresHuman: false,
+            action: INTENTS.CHAT,
+        }
+    }
+
+    const rawHistory = await ChatMessage.find({ conversationId: conversation._id })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean()
+    const history = rawHistory.reverse()
+
+    const classification = await classifyClientMessage({
+        message: normalizedContent,
+        history,
+    })
+
+    if (classification.needsHuman) {
+        const humanReqResult = await requestHumanFromClient(clientId, conversation._id, 'AI detected human request')
+
+        return {
+            conversation: serializeConversation(humanReqResult.conversation),
+            userMessage: userMessagePayload,
+            botMessage: serializeMessage(humanReqResult.systemMessage),
+            systemMessage: serializeMessage(humanReqResult.systemMessage),
             requiresHuman: true,
             action: INTENTS.CALL_HUMAN,
         }
@@ -1102,8 +1359,12 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
             },
         })
 
+        const updatedConversation = await touchConversation(conversation._id, {
+            unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1
+        })
+
         return {
-            conversation: serializeConversation(conversation),
+            conversation: serializeConversation(updatedConversation),
             userMessage: userMessagePayload,
             botMessage: serializeMessage(botDoc),
             systemMessage: null,
@@ -1118,7 +1379,7 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         symptomKeyword,
     })
 
-    const suggestions = pickRandomItems(products, 4)
+    const suggestions = products.slice(0, 4)
     const consultReply = await generateConsultReply({
         message: normalizedContent,
         symptomKeyword,
@@ -1139,8 +1400,12 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         },
     })
 
+    const updatedConversation = await touchConversation(conversation._id, {
+        unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1
+    })
+
     return {
-        conversation: serializeConversation(conversation),
+        conversation: serializeConversation(updatedConversation),
         userMessage: userMessagePayload,
         botMessage: serializeMessage(botDoc),
         systemMessage: null,
@@ -1161,9 +1426,67 @@ const handleStaffMessage = async ({ staffId, staffName = '', conversationId, con
         action: 'HUMAN_CHAT',
     })
 
+    const updatedConversation = await touchConversation(conversation._id, {
+        unreadForClient: Number(conversation.unreadForClient || 0) + 1,
+        unreadForAdmin: 0
+    })
+
+    return {
+        conversation: serializeConversation(updatedConversation),
+        message: serializeMessage(adminMessage),
+    }
+}
+
+const createPrescriptionRequestMessage = async (clientId, conversationId, productName) => {
+    ensureObjectId(clientId, 'clientId')
+
+    let conversation
+    if (conversationId) {
+        conversation = await ChatConversation.findOne({ _id: conversationId, clientId })
+    }
+
+    if (!conversation) {
+        conversation = await ChatConversation.findOne({ clientId }).sort({ updatedAt: -1 })
+    }
+
+    if (!conversation) {
+        conversation = await ChatConversation.create({
+            sessionId: createSessionId(clientId),
+            clientId,
+            status: 'human_pending',
+            lastAction: INTENTS.CALL_HUMAN,
+            metadata: {
+                lastHumanRequestReason: `Prescription consultation for ${productName}`,
+            },
+        })
+    } else {
+        conversation.status = 'human_pending'
+        conversation.lastAction = INTENTS.CALL_HUMAN
+        conversation.metadata = {
+            ...conversation.metadata,
+            lastHumanRequestReason: `Prescription consultation for ${productName}`,
+        }
+        await conversation.save()
+    }
+
+    await conversation.populate('clientId', 'fullName email phone role')
+    await conversation.populate('assignedStaffId', 'fullName email phone role')
+
+    const systemMessage = await appendMessage({
+        conversationId: conversation._id,
+        senderType: 'system',
+        content: `Khách hàng cần tư vấn để mua thuốc kê đơn: [${productName}]`,
+        action: INTENTS.CALL_HUMAN,
+        meta: {
+            reason: `Prescription consultation for ${productName}`,
+            requiresPrescription: true,
+            productName: productName
+        },
+    })
+
     return {
         conversation: serializeConversation(conversation),
-        message: serializeMessage(adminMessage),
+        systemMessage: serializeMessage(systemMessage),
     }
 }
 
@@ -1183,4 +1506,5 @@ module.exports = {
     handleClientMessage,
     handleStaffMessage,
     searchOrdersForUser,
+    createPrescriptionRequestMessage,
 }

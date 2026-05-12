@@ -57,6 +57,8 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [submitError, setSubmitError] = useState('')
 	const [submitSuccess, setSubmitSuccess] = useState('')
+	const [prescriptionImage, setPrescriptionImage] = useState('')
+	const [isUploadingRx, setIsUploadingRx] = useState(false)
 
 	useEffect(() => {
 		if (!selectedAddressId && defaultAddress?.id) {
@@ -107,14 +109,15 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 		() => selectedItems.reduce((sum, item) => sum + item.lineTotal, 0),
 		[selectedItems],
 	)
-
-	const isSelectionValid = selectedItems.length > 0 && totalAmount > 0
 	const selectedCheckoutAddress =
 		addresses.find((item) => item.id === selectedAddressId) ||
 		defaultAddress ||
 		null
 
-	const canSubmit = Boolean(selectedCheckoutAddress?.id) && isSelectionValid && !isSubmitting
+	const hasRxItems = selectedItems.some((item) => item.requiresPrescription)
+	const isSelectionValid = selectedItems.length > 0 && totalAmount > 0 && (!hasRxItems || Boolean(prescriptionImage))
+
+	const canSubmit = Boolean(selectedCheckoutAddress?.id) && isSelectionValid && !isSubmitting && !isUploadingRx
 	const submitButtonLabel = isSubmitting
 		? 'Đang xử lý...'
 		: paymentMethod === 'bank_transfer'
@@ -146,6 +149,11 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 			return
 		}
 
+		if (hasRxItems && !prescriptionImage) {
+			setSubmitError('Vui lòng tải lên hình ảnh đơn thuốc hợp lệ.')
+			return
+		}
+
 		try {
 			setIsSubmitting(true)
 			setSubmitError('')
@@ -156,6 +164,7 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 				paymentMethod,
 				note,
 				selectedProductIds,
+				prescriptionImage,
 			})
 
 			// Nếu chọn Momo, redirect đến trang thanh toán Momo
@@ -235,6 +244,19 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 		} finally {
 			setIsSubmitting(false)
 		}
+	}
+
+	const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0]
+		if (!file) return
+
+		setIsUploadingRx(true)
+		const reader = new FileReader()
+		reader.onloadend = () => {
+			setPrescriptionImage(reader.result as string)
+			setIsUploadingRx(false)
+		}
+		reader.readAsDataURL(file)
 	}
 
 	return (
@@ -357,6 +379,11 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 										<div>
 											<h3 className="text-sm font-bold text-slate-800">{item.productName}</h3>
 											<p className="mt-1 text-xs text-slate-500">Mã thuốc: {item.medicineCode || '-'}</p>
+											{item.requiresPrescription && (
+												<span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600 border border-red-200">
+													⚠️ Thuốc kê đơn
+												</span>
+											)}
 											<p className="mt-2 text-sm text-slate-700">
 												Đơn giá: <span className="font-semibold">{formatVnd(item.unitPrice)}</span>
 											</p>
@@ -370,6 +397,40 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 							</div>
 						)}
 					</section>
+
+					{hasRxItems && (
+						<section className="rounded-2xl bg-[#fffcf5] border border-[#fde68a] p-4 shadow-sm">
+							<h2 className="text-lg font-bold text-[#d97706] flex items-center gap-2">
+								<span role="img" aria-label="warning">⚠️</span> Đơn hàng cần có đơn thuốc
+							</h2>
+							<p className="mt-2 text-sm text-[#b45309]">
+								Đơn hàng của bạn chứa sản phẩm bắt buộc phải có chỉ định của bác sĩ. Vui lòng tải lên hình ảnh đơn thuốc hợp lệ để dược sĩ kiểm tra.
+							</p>
+							<div className="mt-4">
+								<label className="block w-full cursor-pointer rounded-xl border-2 border-dashed border-[#fcd34d] bg-white p-6 text-center hover:bg-[#fffbeb] transition">
+									{prescriptionImage ? (
+										<div className="flex flex-col items-center">
+											<img src={prescriptionImage} alt="Đơn thuốc" className="h-32 object-contain mb-2 rounded-lg border" />
+											<span className="text-sm font-medium text-[#d97706]">Nhấn để chọn ảnh khác</span>
+										</div>
+									) : (
+										<div className="flex flex-col items-center">
+											<span className="text-3xl mb-2">📸</span>
+											<span className="text-sm font-medium text-[#d97706]">Tải lên hình ảnh đơn thuốc</span>
+											<span className="mt-1 text-xs text-[#b45309]">Hỗ trợ JPG, PNG (tối đa 5MB)</span>
+										</div>
+									)}
+									<input 
+										type="file" 
+										accept="image/*" 
+										className="hidden" 
+										onChange={handleImageUpload}
+										disabled={isUploadingRx}
+									/>
+								</label>
+							</div>
+						</section>
+					)}
 
 					<section className="rounded-2xl bg-white p-4 shadow-sm">
 						<h2 className="text-lg font-bold text-slate-800">Phương thức thanh toán</h2>
@@ -453,6 +514,8 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 						<p className="mt-3 text-sm font-medium text-[#ef4444]">
 							{!selectedCheckoutAddress
 								? 'Vui lòng có địa chỉ mặc định trước khi thanh toán'
+								: hasRxItems && !prescriptionImage
+								? 'Vui lòng tải lên đơn thuốc hợp lệ'
 								: 'Vui lòng chọn sản phẩm hợp lệ từ giỏ hàng'}
 						</p>
 					)}

@@ -7,6 +7,7 @@ export interface ProductItem {
 	categoryName: string
 	images: string | string[]
 	isActive: boolean
+	requiresPrescription?: boolean
 }
 
 export interface ProductDetail {
@@ -36,6 +37,7 @@ export interface ProductDetail {
 	medicineCode: string
 	categoryId: string
 	isActive?: boolean
+	requiresPrescription?: boolean
 }
 
 interface ListProductsResponse {
@@ -109,6 +111,23 @@ export const getProductDetail = async (productId: string) => {
 
 	if (!response.ok || !payload.success || !payload.data) {
 		throw new Error(payload.message || payload.error || 'Fetch product detail failed')
+	}
+
+	return payload.data
+}
+
+export const searchProductsByImage = async (file: File | Blob) => {
+	const formData = new FormData()
+	formData.append('image', file)
+
+	const response = await fetch(`${API_BASE_URL}/client/products/search-image`, {
+		method: 'POST',
+		body: formData,
+	})
+	const payload = (await response.json()) as ListProductsResponse
+
+	if (!response.ok || !payload.success || !payload.data) {
+		throw new Error(payload.message || payload.error || 'Search by image failed')
 	}
 
 	return payload.data

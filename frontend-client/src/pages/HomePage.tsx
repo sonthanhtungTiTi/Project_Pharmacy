@@ -135,7 +135,6 @@ const buildCardMeta = (item: ProductItem) => {
 interface HomePageProps {
 	onOpenProductDetail?: (productId: string) => void
 	onOpenCategory?: (categoryId: string) => void
-	onOpenConsultPage?: () => void
 	onOpenHealthNews?: (newsId: string) => void
 }
 
@@ -144,7 +143,7 @@ interface CategorySection {
 	products: ProductItem[]
 }
 
-function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOpenHealthNews }: HomePageProps) {
+function HomePage({ onOpenProductDetail, onOpenCategory, onOpenHealthNews }: HomePageProps) {
 	const [categories, setCategories] = useState<CategoryItem[]>([])
 	const [sections, setSections] = useState<CategorySection[]>([])
 	const [searchResults, setSearchResults] = useState<ProductItem[]>([])
@@ -176,15 +175,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOp
 		window.dispatchEvent(new PopStateEvent('popstate'))
 	}
 
-	const openConsultPage = () => {
-		if (onOpenConsultPage) {
-			onOpenConsultPage()
-			return
-		}
 
-		window.history.pushState({}, '', '/mua-thuoc-tu-van')
-		window.dispatchEvent(new PopStateEvent('popstate'))
-	}
 
 	const openHealthNewsPage = (newsId: string) => {
 		if (!newsId) {
@@ -200,16 +191,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOp
 		window.dispatchEvent(new PopStateEvent('popstate'))
 	}
 
-	const scrollToCategorySection = (categoryId: string) => {
-		if (!categoryId) {
-			return
-		}
 
-		const target = document.getElementById(`category-section-${categoryId}`)
-		if (target) {
-			target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-		}
-	}
 
 	useEffect(() => {
 		const loadHealthNews = async () => {
@@ -499,6 +481,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenConsultPage, onOp
 														sale={meta.discountLabel}
 														soldCount={meta.soldCount}
 														totalCount={meta.totalCount}
+														requiresPrescription={item.requiresPrescription}
 														onViewDetail={onOpenProductDetail}
 													/>
 												</div>

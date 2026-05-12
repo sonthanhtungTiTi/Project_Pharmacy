@@ -113,6 +113,7 @@ export default function Support() {
 	const [appliedKeyword, setAppliedKeyword] = useState('')
 	const [statusFilter, setStatusFilter] = useState<'all' | ChatConversationStatus>('all')
 	const [messageDraft, setMessageDraft] = useState('')
+	const [actioningPrescription, setActioningPrescription] = useState<string | null>(null)
 
   const selectedConversation = useMemo(() => {
     return conversations.find((item) => item.id === selectedConversationId) || null
@@ -302,6 +303,10 @@ export default function Support() {
         return
       }
       mergeConversationUpdate(payload.conversation)
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg')
+      audio.play().catch(() => {
+        // Trinh duyet co the block autoplay neu user chua tuong tac
+      })
     }
 
     const onMessageNew = (payload: { conversationId?: string; message?: ChatMessage }) => {
@@ -419,6 +424,7 @@ export default function Support() {
   }
 
   const sendMessage = async () => {
+    // ... (unchanged code)
     if (!selectedConversationId || sendingMessage) {
       return
     }
@@ -474,6 +480,34 @@ export default function Support() {
       setMessageDraft(content)
     } finally {
       setSendingMessage(false)
+    }
+  }
+
+  const handlePrescriptionAction = async (requestId: string, action: 'approve' | 'reject') => {
+    if (actioningPrescription) return
+    setActioningPrescription(requestId)
+    setChatError(null)
+
+    try {
+      const token = localStorage.getItem('adminAccessToken')
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/admin/prescriptions/${requestId}/${action}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(action === 'approve' ? 'Đã duyệt đơn thuốc và thêm vào giỏ hàng của khách!' : 'Đã từ chối đơn thuốc!')
+        // Close conversation optionally, or let them continue chatting
+      } else {
+        setChatError(data.message || 'Lỗi khi xử lý đơn thuốc')
+      }
+    } catch (error) {
+      setChatError('Lỗi kết nối khi xử lý đơn thuốc')
+    } finally {
+      setActioningPrescription(null)
     }
   }
 
@@ -673,9 +707,39 @@ export default function Support() {
                     const isUser = message.senderType === 'user'
 
                     if (isSystem) {
+                      const reqMatch = message.content.match(/Mã yêu cầu: ([a-zA-Z0-9]+)/)
+                      const reqId = reqMatch ? reqMatch[1] : null
+                      const linkMatch = message.content.match(/Link ảnh đơn thuốc: (https?:\/\/[^\s]+)/)
+                      const linkImg = linkMatch ? linkMatch[1] : null
+
                       return (
-                        <div key={message.id} className="rounded-md bg-amber-50 text-amber-700 text-xs text-center px-3 py-2">
-                          {message.content}
+                        <div key={message.id} className="rounded-md bg-amber-50 text-amber-700 text-xs text-center px-3 py-2 flex flex-col items-center gap-2">
+                          <p>{message.content}</p>
+                          {linkImg && (
+                            <a href={linkImg} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                              Xem ảnh đơn thuốc gốc
+                            </a>
+                          )}
+                          {reqId && (
+                            <div className="flex gap-3 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => handlePrescriptionAction(reqId, 'approve')}
+                                disabled={actioningPrescription === reqId}
+                                className="px-3 py-1 bg-green-600 text-white rounded font-medium hover:bg-green-700 disabled:opacity-50"
+                              >
+                                {actioningPrescription === reqId ? 'Đang duyệt...' : 'Duyệt (Thêm vào giỏ)'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePrescriptionAction(reqId, 'reject')}
+                                disabled={actioningPrescription === reqId}
+                                className="px-3 py-1 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {actioningPrescription === reqId ? 'Đang từ chối...' : 'Từ chối'}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )
                     }

@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import io, { Socket } from 'socket.io-client'
+import toast, { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './stores/authStore'
 import { useWebRTCCall } from './hooks/useWebRTCCall'
 import LoginPage from './pages/LoginPage'
-import Dashboard from './pages/Dashboard'
+import Dashboard from './pages/dashboard'
 import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Products from './pages/Products'
@@ -79,6 +80,56 @@ function CallProvider({ children }: { children: React.ReactNode }) {
       socketRef.current = null
     }
   }, [isAuthenticated, token])
+
+  // Prescription order notification
+  const playPrescriptionSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(880, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3)
+      gain.gain.setValueAtTime(0.4, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.5)
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    const sock = socketRef.current
+    if (!sock) return
+
+    const handleNewPrescription = (data: any) => {
+      playPrescriptionSound()
+      toast(
+        (t) => (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 22 }}>📋</span>
+            <div>
+              <p style={{ fontWeight: 700, margin: 0, color: '#1e293b' }}>Đơn thuốc kê đơn mới!</p>
+              <p style={{ margin: '4px 0 0', color: '#475569', fontSize: 13 }}>
+                {data?.productName || 'Sản phẩm kê đơn'} — Mã: {data?.orderCode}
+              </p>
+              <button
+                onClick={() => { toast.dismiss(t.id); window.location.href = '/orders' }}
+                style={{ marginTop: 8, padding: '4px 12px', background: '#2563eb', color: '#fff', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12 }}
+              >
+                Xem ngay
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: 8000, style: { maxWidth: 380, padding: '12px 16px' } }
+      )
+    }
+
+    sock.on('new_prescription_order', handleNewPrescription)
+    return () => { sock.off('new_prescription_order', handleNewPrescription) }
+  }, [socket, playPrescriptionSound])
 
   // PeerJS Call Hook (Zalo-style)
   const {
@@ -168,6 +219,7 @@ function CallProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <Toaster position="top-right" />
       {/* Call overlay — always on top of everything */}
       {(callPhase === 'RINGING' || callPhase === 'IN_CALL') && (
         <VideoCallOverlay

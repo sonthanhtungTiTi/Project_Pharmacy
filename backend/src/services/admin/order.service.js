@@ -23,6 +23,9 @@ const serializeOrder = (orderDoc) => ({
 	placedAt: orderDoc.placedAt,
 	createdAt: orderDoc.createdAt,
 	updatedAt: orderDoc.updatedAt,
+	prescriptionImage: orderDoc.prescriptionImage,
+	prescriptionStatus: orderDoc.prescriptionStatus,
+	pharmacistId: orderDoc.pharmacistId,
 	customer: {
 		id: orderDoc.userId?._id ? String(orderDoc.userId._id) : String(orderDoc.userId || ''),
 		fullName: orderDoc.userId?.fullName || '',
@@ -49,6 +52,7 @@ const serializeOrder = (orderDoc) => ({
 		unitPrice: item.unitPrice,
 		quantity: item.quantity,
 		lineTotal: item.lineTotal,
+		requiresPrescription: item.requiresPrescription,
 	})),
 })
 
@@ -105,13 +109,14 @@ const getOrderDetail = async (orderId) => {
 	return serializeOrder(order)
 }
 
-const updateOrderStatus = async (orderId, { status, paymentStatus, adminNote } = {}) => {
+const updateOrderStatus = async (orderId, { status, paymentStatus, adminNote, prescriptionStatus, pharmacistId } = {}) => {
 	if (!mongoose.Types.ObjectId.isValid(orderId)) {
 		throw new AdminOrderServiceError('orderId is invalid', 400)
 	}
 
 	const allowedStatus = ['pending', 'confirmed', 'shipping', 'completed', 'cancelled']
 	const allowedPaymentStatus = ['unpaid', 'pending', 'paid', 'failed', 'refunded']
+	const allowedPrescriptionStatus = ['none', 'pending', 'validated', 'rejected']
 	const statusTransitions = {
 		pending: new Set(['confirmed', 'cancelled']),
 		confirmed: new Set(['shipping', 'cancelled']),
@@ -146,6 +151,23 @@ const updateOrderStatus = async (orderId, { status, paymentStatus, adminNote } =
 			throw new AdminOrderServiceError('paymentStatus is invalid', 400)
 		}
 		order.paymentStatus = paymentStatus
+	}
+
+	if (prescriptionStatus) {
+		if (!allowedPrescriptionStatus.includes(prescriptionStatus)) {
+			throw new AdminOrderServiceError('prescriptionStatus is invalid', 400)
+		}
+		order.prescriptionStatus = prescriptionStatus
+		if (pharmacistId && mongoose.Types.ObjectId.isValid(pharmacistId)) {
+			order.pharmacistId = pharmacistId
+		}
+
+		if (prescriptionStatus === 'rejected' && order.status === 'pending') {
+			order.status = 'cancelled'
+			order.cancelReason = 'Từ chối do đơn thuốc không hợp lệ'
+		} else if (prescriptionStatus === 'validated' && order.status === 'pending') {
+			order.status = 'confirmed'
+		}
 	}
 
 	if (typeof adminNote === 'string') {

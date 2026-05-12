@@ -39,7 +39,8 @@ const toProductCard = (product) => {
 		images: firstImage,
 		isActive: Boolean(product.isActive),
 		defaultSellUnit: product.defaultSellUnit || 'hộp',
-		totalStock: product.totalBaseQuantity || 0
+		totalStock: product.totalBaseQuantity || 0,
+		requiresPrescription: product.requiresPrescription || false,
 	}
 }
 
@@ -72,6 +73,7 @@ const toAiSearchItem = (product) => {
 		shortDescription: String(product.usageSummary || product.description || '').trim(),
 		image: firstImage,
 		totalStock,
+		requiresPrescription: product.requiresPrescription || false,
 	}
 }
 
@@ -97,7 +99,7 @@ const findProductByKeyword = async (keyword, { limit = 5 } = {}) => {
 			{ additionalInfo: regex },
 		],
 	})
-		.select('_id productName medicineName usageSummary description images inventory sellUnits defaultSellUnit totalBaseQuantity price')
+		.select('_id productName medicineName usageSummary description images inventory sellUnits defaultSellUnit totalBaseQuantity price requiresPrescription')
 		.sort({ updatedAt: -1 })
 		.limit(safeLimit)
 		.lean()
@@ -184,11 +186,11 @@ const getProducts = async ({ categoryId, search, page = 1, limit = 20 }) => {
 	const [items, total] = await Promise.all([
 		isGetAll
 			? Product.find(filter)
-					.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price')
+					.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price requiresPrescription')
 					.sort({ createdAt: -1 })
 					.lean()
 			: Product.find(filter)
-					.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price')
+					.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price requiresPrescription')
 					.sort({ createdAt: -1 })
 					.skip(skip)
 					.limit(numericLimit)
@@ -221,9 +223,56 @@ const getProductDetail = async (productId) => {
 	return product
 }
 
+const mockExtractTextFromImage = async (imageBuffer) => {
+	// Giả lập độ trễ của API OCR (Google Cloud Vision, Tesseract...)
+	await new Promise(resolve => setTimeout(resolve, 1500))
+	
+	// Trả về các cụm từ (tên thuốc) phân cách bằng dấu phẩy
+	return "Oztis giảm triệu chứng thoái hóa khớp, Paracetamol 500mg, Thuốc không tồn tại XYZ"
+}
+
+const searchProductsByImage = async (imageBuffer) => {
+	try {
+		const extractedText = await mockExtractTextFromImage(imageBuffer)
+		
+		// Tiền xử lý text: Tách theo dấu phẩy để lấy chính xác các cụm từ/tên thuốc
+		// thay vì tách theo từng khoảng trắng gây nhiễu
+		const phrases = extractedText.split(',').map(s => s.trim()).filter(s => s.length > 2)
+		
+		if (phrases.length === 0) {
+			return { items: [], extractedText }
+		}
+		
+		// Tạo mảng regex để tìm kiếm chính xác cụm từ (có thể bỏ chữ hoa chữ thường)
+		const regexArray = phrases.map(kw => new RegExp(escapeRegex(kw), 'i'))
+		
+		// Tìm các sản phẩm khớp với bất kỳ cụm từ nào
+		const products = await Product.find({
+			isActive: { $ne: false },
+			$or: [
+				{ productName: { $in: regexArray } },
+				{ activeIngredient: { $in: regexArray } },
+				{ mainIngredients: { $in: regexArray } }
+			]
+		})
+		.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price requiresPrescription')
+		.limit(10)
+		.lean()
+		
+		return {
+			items: products.map(toProductCard),
+			extractedText
+		}
+	} catch (error) {
+		console.error("OCR Error:", error)
+		throw new ProductServiceError('Lỗi xử lý hình ảnh', 500)
+	}
+}
+
 module.exports = {
 	getProducts,
 	getProductDetail,
 	findProductByKeyword,
 	searchProductsByKeyword,
+	searchProductsByImage,
 }

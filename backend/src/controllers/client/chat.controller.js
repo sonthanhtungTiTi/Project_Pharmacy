@@ -23,29 +23,30 @@ const emitConversationEvents = (io, data) => {
 
 	const conversationId = data.conversation.id
 	const roomName = `chat:conversation:${conversationId}`
+	const clientId = String(data.conversation.client?.id || '')
 
 	if (data.userMessage) {
-		io.to(roomName).emit('chat:message:new', {
+		io.to(roomName).to(clientId).emit('chat:message:new', {
 			conversationId,
 			message: data.userMessage,
 		})
 	}
 
 	if (data.systemMessage) {
-		io.to(roomName).emit('chat:message:new', {
+		io.to(roomName).to(clientId).emit('chat:message:new', {
 			conversationId,
 			message: data.systemMessage,
 		})
 	}
 
 	if (data.botMessage) {
-		io.to(roomName).emit('chat:message:new', {
+		io.to(roomName).to(clientId).emit('chat:message:new', {
 			conversationId,
 			message: data.botMessage,
 		})
 	}
 
-	io.to(roomName).emit('chat:conversation:updated', {
+	io.to(roomName).to(clientId).emit('chat:conversation:updated', {
 		conversation: data.conversation,
 	})
 

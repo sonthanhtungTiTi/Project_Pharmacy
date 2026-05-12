@@ -8,6 +8,7 @@ export interface CartItem {
 	unitPrice: number
 	quantity: number
 	lineTotal: number
+	requiresPrescription?: boolean
 }
 
 export interface CartData {

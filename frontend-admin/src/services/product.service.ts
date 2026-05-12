@@ -43,6 +43,7 @@ export interface Product {
     importPrice?: number
   }>
   totalStock?: number
+  requiresPrescription?: boolean
 }
 
 export interface ProductsResponse {

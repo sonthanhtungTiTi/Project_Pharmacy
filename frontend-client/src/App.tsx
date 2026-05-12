@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import io, { Socket } from 'socket.io-client'
+import toast from 'react-hot-toast'
 import HomePage from './pages/HomePage'
 import Category from './pages/Category'
 import ProductDetail from './pages/ProductDetail'
@@ -146,6 +147,15 @@ function App() {
 
     newSocket.on('error', (error) => {
       console.error('❌ Socket error:', error)
+    })
+
+    newSocket.on('prescription_approved', () => {
+      toast.success('Đơn thuốc đã được duyệt! Sản phẩm đã tự động thêm vào giỏ hàng của bạn.', { duration: 6000 })
+      window.dispatchEvent(new Event('cartUpdated'))
+    })
+
+    newSocket.on('prescription_rejected', () => {
+      toast.error('Đơn thuốc của bạn không được duyệt. Vui lòng liên hệ dược sĩ để biết thêm chi tiết.', { duration: 8000 })
     })
 
     socketRef.current = newSocket
@@ -321,18 +331,7 @@ function App() {
     setActiveHealthNewsId('')
   }
 
-  const openConsultPage = () => {
-    window.history.pushState({}, '', '/mua-thuoc-tu-van')
-    setActiveProductId('')
-    setActiveCategoryId('')
-    setIsConsultPage(true)
-    setIsCartPage(false)
-    setIsCheckoutPage(false)
-    setIsMomoResultPage(false)
-    setIsVnpayResultPage(false)
-    setIsProfilePage(false)
-    setActiveHealthNewsId('')
-  }
+
 
   const openHealthNewsPage = (newsId: string) => {
     if (!newsId) return
@@ -589,7 +588,6 @@ function App() {
       <HomePage
         onOpenProductDetail={openProductDetail}
         onOpenCategory={openCategory}
-        onOpenConsultPage={openConsultPage}
         onOpenHealthNews={openHealthNewsPage}
       />
       {renderSupportTools()}

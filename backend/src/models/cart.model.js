@@ -20,6 +20,10 @@ const cartItemSchema = new mongoose.Schema(
 			type: String,
 			default: '',
 		},
+		requiresPrescription: {
+			type: Boolean,
+			default: false,
+		},
 		unitPrice: {
 			type: Number,
 			required: true,

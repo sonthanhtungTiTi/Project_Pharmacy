@@ -20,6 +20,10 @@ const orderItemSchema = new mongoose.Schema(
 			type: String,
 			default: '',
 		},
+		requiresPrescription: {
+			type: Boolean,
+			default: false,
+		},
 		unitPrice: {
 			type: Number,
 			required: true,
@@ -44,7 +48,7 @@ const shippingAddressSchema = new mongoose.Schema(
 		addressId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: 'Address',
-			required: true,
+			required: false,
 		},
 		label: {
 			type: String,
@@ -52,32 +56,38 @@ const shippingAddressSchema = new mongoose.Schema(
 		},
 		recipientName: {
 			type: String,
-			required: true,
+			required: false,
+			default: '',
 			trim: true,
 		},
 		phone: {
 			type: String,
-			required: true,
+			required: false,
+			default: '',
 			trim: true,
 		},
 		provinceName: {
 			type: String,
-			required: true,
+			required: false,
+			default: '',
 			trim: true,
 		},
 		districtName: {
 			type: String,
-			required: true,
+			required: false,
+			default: '',
 			trim: true,
 		},
 		wardName: {
 			type: String,
-			required: true,
+			required: false,
+			default: '',
 			trim: true,
 		},
 		street: {
 			type: String,
-			required: true,
+			required: false,
+			default: '',
 			trim: true,
 		},
 		note: {
@@ -87,7 +97,8 @@ const shippingAddressSchema = new mongoose.Schema(
 		},
 		fullAddress: {
 			type: String,
-			required: true,
+			required: false,
+			default: 'Chờ duyệt đơn thuốc',
 			trim: true,
 		},
 	},
@@ -110,7 +121,8 @@ const orderSchema = new mongoose.Schema(
 		},
 		shippingAddress: {
 			type: shippingAddressSchema,
-			required: true,
+			required: false,
+			default: () => ({}),
 		},
 		items: {
 			type: [orderItemSchema],
@@ -129,7 +141,7 @@ const orderSchema = new mongoose.Schema(
 		},
 		status: {
 			type: String,
-			enum: ['pending', 'confirmed', 'shipping', 'completed', 'cancelled'],
+			enum: ['pending', 'confirmed', 'shipping', 'completed', 'cancelled', 'pending_prescription', 'approved', 'rejected'],
 			default: 'pending',
 			index: true,
 		},
@@ -165,6 +177,20 @@ const orderSchema = new mongoose.Schema(
 			type: String,
 			default: '',
 			trim: true,
+		},
+		prescriptionImage: {
+			type: String,
+			default: '',
+		},
+		prescriptionStatus: {
+			type: String,
+			enum: ['none', 'pending', 'validated', 'rejected'],
+			default: 'none',
+		},
+		pharmacistId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: 'User',
+			default: null,
 		},
 		placedAt: {
 			type: Date,
