@@ -85,14 +85,14 @@ const formatDateTime = (value: string | null | undefined) => {
 
 const getPaymentStatusLabel = (status: string) => {
   if (status === 'paid') return 'Da thanh toan'
-  if (status === 'failed') return 'Thanh toán thất bại'
+  if (status === 'failed') return 'Thanh toan that bai'
   if (status === 'pending') return 'Dang xu ly'
   return 'Chua thanh toan'
 }
 
 const VnpayResultPage = () => {
   const [viewStatus, setViewStatus] = useState<ResultViewStatus>('loading')
-  const [statusMessage, setStatusMessage] = useState('Dang xác nhận giao dịch VNPAY...')
+  const [statusMessage, setStatusMessage] = useState('Dang xac nhan giao dich VNPAY...')
   const [orderData, setOrderData] = useState<OrderData | null>(null)
   const [paymentSnapshot, setPaymentSnapshot] = useState<PaymentSnapshot | null>(null)
 
@@ -106,7 +106,7 @@ const VnpayResultPage = () => {
 
         if (!orderId) {
           setViewStatus('failed')
-          setStatusMessage('Không tìm thấy thong tin đơn hàng')
+          setStatusMessage('Khong tim thay thong tin don hang')
           return
         }
 
@@ -135,13 +135,13 @@ const VnpayResultPage = () => {
 
         if (hasResponseCode && !isSuccessFromReturn) {
           setViewStatus('failed')
-          setStatusMessage(returnParams.message || 'Thanh toán thất bại. Vui lòng thử lại.')
+          setStatusMessage(returnParams.message || 'Thanh toan that bai. Vui long thu lai.')
           shouldClearOrderId = true
         }
 
         if (isSuccessFromReturn) {
           setViewStatus('success')
-          setStatusMessage(returnParams.message || 'Thanh toán VNPAY thành công. Đang đồng bộ đơn hàng...')
+          setStatusMessage(returnParams.message || 'Thanh toan VNPAY thanh cong. Dang dong bo don hang...')
           shouldClearOrderId = true
         }
 
@@ -202,7 +202,7 @@ const VnpayResultPage = () => {
             if (statusResult.paymentStatus === 'paid') {
               isSettled = true
               setViewStatus('success')
-              setStatusMessage('Thanh toán VNPAY thành công! Đơn hàng của bạn đã được cập nhật.')
+              setStatusMessage('Thanh toan VNPAY thanh cong! Don hang cua ban da duoc cap nhat.')
               shouldClearOrderId = true
               await loadOrderDetail()
               break
@@ -211,7 +211,7 @@ const VnpayResultPage = () => {
             if (statusResult.paymentStatus === 'failed' || statusResult.status === 'cancelled') {
               isSettled = true
               setViewStatus('failed')
-              setStatusMessage('Thanh toán VNPAY thất bại. Đơn hàng đã bị hủy.')
+              setStatusMessage('Thanh toan VNPAY that bai. Don hang da bi huy.')
               shouldClearOrderId = true
               break
             }
@@ -225,7 +225,7 @@ const VnpayResultPage = () => {
 
         if (!isSettled && !hasResponseCode) {
           setViewStatus('loading')
-          setStatusMessage('Giao dich dang duoc xu ly. Vui lòng kiem tra lai trong muc đơn hàng.')
+          setStatusMessage('Giao dich dang duoc xu ly. Vui long kiem tra lai trong muc don hang.')
         }
       } catch (error) {
         console.error('VNPay return handling error:', error)
@@ -294,19 +294,19 @@ const VnpayResultPage = () => {
               <div className="space-y-3">
                 <h1 className="text-2xl font-black text-slate-900">
                   {viewStatus === 'success'
-                    ? 'Thanh toán VNPAY thành công'
+                    ? 'Thanh toan VNPAY thanh cong'
                     : viewStatus === 'failed'
-                      ? 'Thanh toán VNPAY thất bại'
-                      : 'Dang xác nhận giao dịch VNPAY'}
+                      ? 'Thanh toan VNPAY that bai'
+                      : 'Dang xac nhan giao dich VNPAY'}
                 </h1>
                 <p className="text-sm text-slate-600">{statusMessage}</p>
 
                 <div className="rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-700">
                   <p>
-                    <span className="font-semibold">Ma đơn hàng:</span> {displayedOrderCode}
+                    <span className="font-semibold">Ma don hang:</span> {displayedOrderCode}
                   </p>
                   <p className="mt-1">
-                    <span className="font-semibold">Ma giao dịch:</span> {displayedTransactionId}
+                    <span className="font-semibold">Ma giao dich:</span> {displayedTransactionId}
                   </p>
                   <p className="mt-1">
                     <span className="font-semibold">So tien thanh toan:</span> {formatVnd(displayedAmount)}
@@ -318,7 +318,7 @@ const VnpayResultPage = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
                   <p className="text-xs font-semibold text-slate-500">TRANG THAI</p>
                   <p className="mt-1 text-lg font-black text-slate-900">
-                    {viewStatus === 'success' ? 'THÀNH CÔNG' : viewStatus === 'failed' ? 'THẤT BẠI' : 'ĐANG XỬ LÝ'}
+                    {viewStatus === 'success' ? 'THANH CONG' : viewStatus === 'failed' ? 'THAT BAI' : 'DANG XU LY'}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">VNPay Payment Gateway</p>
                 </div>
@@ -328,7 +328,7 @@ const VnpayResultPage = () => {
             <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-[1fr_360px] md:p-6">
               <section className="rounded-xl border border-slate-200 bg-white">
                 <header className="border-b border-slate-200 px-4 py-3">
-                  <h2 className="text-base font-bold text-slate-900">Chi tiết giao dịch</h2>
+                  <h2 className="text-base font-bold text-slate-900">Chi tiet giao dich</h2>
                 </header>
                 <div className="space-y-2 px-4 py-3 text-sm text-slate-700">
                   <div className="flex items-center justify-between gap-3">
@@ -338,15 +338,15 @@ const VnpayResultPage = () => {
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-500">Ma giao dịch VNPay</span>
+                    <span className="text-slate-500">Ma giao dich VNPay</span>
                     <span className="font-semibold">{displayedTransactionId}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-500">Ma đơn hàng</span>
+                    <span className="text-slate-500">Ma don hang</span>
                     <span className="font-semibold">{displayedOrderCode}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-500">Thoi gian giao dịch</span>
+                    <span className="text-slate-500">Thoi gian giao dich</span>
                     <span className="font-semibold">{formatDateTime(displayedPaymentTime)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
@@ -374,7 +374,7 @@ const VnpayResultPage = () => {
               </section>
 
               <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-                <h2 className="text-base font-bold text-slate-900">Tom tat đơn hàng</h2>
+                <h2 className="text-base font-bold text-slate-900">Tom tat don hang</h2>
                 <div className="space-y-2 text-sm text-slate-700">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">So san pham</span>
@@ -392,7 +392,7 @@ const VnpayResultPage = () => {
 
                 {orderData?.shippingAddress && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                    <p className="font-semibold text-slate-800">Thông tin nhận hàng</p>
+                    <p className="font-semibold text-slate-800">Thong tin nhan hang</p>
                     <p className="mt-1">{orderData.shippingAddress.recipientName} - {orderData.shippingAddress.phone}</p>
                     <p className="mt-1">{orderData.shippingAddress.fullAddress}</p>
                   </div>
@@ -445,7 +445,7 @@ const VnpayResultPage = () => {
               onClick={handleBackOrders}
               className="rounded-xl bg-[#35b548] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
             >
-              Xem đơn hàng
+              Xem don hang
             </button>
           </div>
         </div>

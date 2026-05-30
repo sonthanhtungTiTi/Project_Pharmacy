@@ -30,7 +30,7 @@ export const useAddress = () => {
 			setAddresses(data)
 			return data
 		} catch (apiError) {
-			const message = apiError instanceof Error ? apiError.message : 'Không thể tai danh sach địa chỉ'
+			const message = apiError instanceof Error ? apiError.message : 'Khong the tai danh sach dia chi'
 			setError(message)
 			return []
 		} finally {

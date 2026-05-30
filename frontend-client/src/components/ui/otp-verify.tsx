@@ -35,7 +35,7 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 		event.preventDefault()
 
 		if (!email.trim()) {
-			toast.error('Vui lòng nhập email de khôi phục mat khau')
+			toast.error('Vui long nhap email de khoi phuc mat khau')
 			return
 		}
 
@@ -49,9 +49,9 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 			const result = await forgotPassword({ email: email.trim().toLowerCase() })
 			setMaskedEmail(result.maskedEmail)
 			setStep('otp')
-			toast.success(`OTP đã được gui den ${result.maskedEmail} (hieu luc ${result.expiresInMinutes} phut)`)
+			toast.success(`OTP da duoc gui den ${result.maskedEmail} (hieu luc ${result.expiresInMinutes} phut)`)
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Không thể gui OTP')
+			toast.error(error instanceof Error ? error.message : 'Khong the gui OTP')
 		} finally {
 			setIsSendingOtp(false)
 		}
@@ -71,10 +71,10 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 				email: email.trim().toLowerCase(),
 				otp: otp.trim(),
 			})
-			toast.success('Xác nhận OTP thành công')
+			toast.success('Xac nhan OTP thanh cong')
 			setStep('password')
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Xác nhận OTP thất bại')
+			toast.error(error instanceof Error ? error.message : 'Xac nhan OTP that bai')
 		} finally {
 			setIsVerifyingOtp(false)
 		}
@@ -84,17 +84,17 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 		event.preventDefault()
 
 		if (!newPassword || !confirmPassword) {
-			toast.error('Vui lòng nhập đầy đủ mat khau moi')
+			toast.error('Vui long nhap day du mat khau moi')
 			return
 		}
 
 		if (newPassword !== confirmPassword) {
-			toast.error('Mật khẩu nhập lai không khớp')
+			toast.error('Mat khau nhap lai khong khop')
 			return
 		}
 
 		if (newPassword.length < 6 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
-			toast.error('Mật khẩu moi phai tu 6 ký tự va gom chữ + số')
+			toast.error('Mat khau moi phai tu 6 ky tu va gom chu + so')
 			return
 		}
 
@@ -132,7 +132,7 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 							type="email"
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
-							placeholder="Nhập email đã đăng ký"
+							placeholder="Nhap email da dang ky"
 							className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
 						/>
 					</label>
@@ -254,7 +254,7 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 						disabled={isResettingPassword}
 						className="mt-1 h-11 w-full rounded-xl bg-[linear-gradient(120deg,#25a53e,#47c95a)] text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,165,62,0.28)] transition hover:brightness-105"
 					>
-						{isResettingPassword ? 'Dang cập nhật...' : 'Đặt lại mat khau'}
+						{isResettingPassword ? 'Dang cap nhat...' : 'Dat lai mat khau'}
 					</button>
 				</form>
 			</>

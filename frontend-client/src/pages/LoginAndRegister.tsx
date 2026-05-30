@@ -11,8 +11,6 @@ import {
 	registerWithForm,
 	type AuthUser,
 } from '../services/auth.service'
-import FaceCamera from '../components/ui/FaceCamera'
-import { loginWithFaceId } from '../services/faceAuth.service'
 
 interface LoginAndRegisterProps {
 	onClose: () => void
@@ -22,7 +20,6 @@ interface LoginAndRegisterProps {
 function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 	const [isRegisterMode, setIsRegisterMode] = useState(false)
 	const [isForgotMode, setIsForgotMode] = useState(false)
-	const [showFaceCamera, setShowFaceCamera] = useState(false)
 	const [showPassword, setShowPassword] = useState(false)
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 	const [fullName, setFullName] = useState('')
@@ -45,7 +42,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 		const idToken = credentialResponse.credential
 
 		if (!idToken) {
-			toast.error('Không lấy được idToken tu Google')
+			toast.error('Khong lay duoc idToken tu Google')
 			return
 		}
 
@@ -54,7 +51,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 			const result = await loginWithGoogle(idToken)
 			handleAuthSuccess(result.user, result.accessToken)
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Đăng nhập Google thất bại')
+			toast.error(error instanceof Error ? error.message : 'Dang nhap Google that bai')
 		} finally {
 			setIsGoogleLoading(false)
 		}
@@ -69,11 +66,11 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 
 				if (isRegisterMode) {
 					if (!fullName || !phone || !email || !password || !confirmPassword) {
-						throw new Error('Vui lòng nhập đầy đủ thong tin dang ky')
+						throw new Error('Vui long nhap day du thong tin dang ky')
 					}
 
 					if (password !== confirmPassword) {
-						throw new Error('Mật khẩu nhập lai không khớp')
+						throw new Error('Mat khau nhap lai khong khop')
 					}
 
 					const result = await registerWithForm({
@@ -83,13 +80,13 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 						password,
 					})
 
-					toast.success('Đăng ký tai khoan thành công')
+					toast.success('Dang ky tai khoan thanh cong')
 					handleAuthSuccess(result.user, result.accessToken)
 					return
 				}
 
 				if (!phone || !password) {
-					throw new Error('Vui lòng nhập số điện thoại va mat khau')
+					throw new Error('Vui long nhap so dien thoai va mat khau')
 				}
 
 				const result = await loginWithForm({
@@ -99,7 +96,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 
 				handleAuthSuccess(result.user, result.accessToken)
 			} catch (error) {
-				toast.error(error instanceof Error ? error.message : 'Đăng nhập thất bại')
+				toast.error(error instanceof Error ? error.message : 'Dang nhap that bai')
 			} finally {
 				setIsSubmitting(false)
 			}
@@ -120,13 +117,13 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 				</button>
 
 				<div className="bg-[linear-gradient(120deg,#39b54a,#6adf7d)] px-6 pb-7 pt-8 text-white">
-					<p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/85">NHÀ THUỐC T&Q </p>
+					<p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/85">NHA THUOC T&Q </p>
 					<h2 className="mt-3 text-3xl font-black leading-tight">
-						{isForgotMode ? 'Khôi phục mat khau' : isRegisterMode ? 'Tạo tài khoản mới' : 'Chào mừng ban quay lại'}
+						{isForgotMode ? 'Khoi phuc mat khau' : isRegisterMode ? 'Tao tai khoan moi' : 'Chao mung ban quay lai'}
 					</h2>
 					<p className="mt-2 text-sm text-white/85">
 						{isForgotMode
-							? 'Nhập email de nhan OTP va xác nhận khôi phục mat khau.'
+							? 'Nhap email de nhan OTP va xac nhan khoi phuc mat khau.'
 							: isRegisterMode
 								? 'Đăng ký nhanh để theo dõi đơn hàng và ưu đãi cá nhân.'
 								: 'Đăng nhập để xem lịch sử mua thuốc và ưu đãi riêng cho bạn.'}
@@ -195,7 +192,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 											type="email"
 											value={email}
 											onChange={(event) => setEmail(event.target.value)}
-											placeholder="Nhập email"
+											placeholder="Nhap email"
 											className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
 										/>
 									</label>
@@ -229,7 +226,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 											onClick={() => setIsForgotMode(true)}
 											className="text-xs font-semibold text-[#1f9542] hover:underline"
 										>
-											Quên mật khẩu?
+											Quen mat khau?
 										</button>
 									</div>
 								)}
@@ -283,22 +280,6 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 									/>
 								</div>
 
-								{!isRegisterMode && (
-									<button
-										type="button"
-										onClick={() => {
-											if (!phone.trim()) {
-												toast.error('Vui lòng nhập Email hoặc Số điện thoại trước khi dùng Face ID')
-												return
-											}
-											setShowFaceCamera(true)
-										}}
-										className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#4ade80] bg-[#f0fdf4] text-sm font-bold text-[#166534] transition hover:bg-[#dcfce7]"
-									>
-										<span className="text-lg">📷</span> Đăng nhập bằng Face ID
-									</button>
-								)}
-
 								{isGoogleLoading && <p className="text-sm text-slate-500">Đang xử lý Google...</p>}
 							</form>
 
@@ -316,25 +297,6 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 					)}
 				</div>
 			</div>
-
-			{showFaceCamera && (
-				<FaceCamera 
-					mode="login"
-					onClose={() => setShowFaceCamera(false)}
-					onCapture={async (blob) => {
-						try {
-							setIsSubmitting(true)
-							const result = await loginWithFaceId(phone.trim(), blob)
-							handleAuthSuccess(result.user, result.accessToken)
-						} catch (error: any) {
-							toast.error(error.message || 'Đăng nhập Face ID thất bại')
-							setShowFaceCamera(false)
-						} finally {
-							setIsSubmitting(false)
-						}
-					}}
-				/>
-			)}
 		</div>
 	)
 }

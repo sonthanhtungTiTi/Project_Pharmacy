@@ -42,8 +42,8 @@ const getProductIdFromPath = () => {
 }
 
 const getCategoryIdFromPath = () => {
-  const match = window.location.pathname.match(/^\/category\/([^/]+)$/)
-  return match ? decodeURIComponent(match[1]) : ''
+	const match = window.location.pathname.match(/^\/category\/([^/]+)$/)
+	return match ? decodeURIComponent(match[1]) : ''
 }
 
 const isConsultPagePath = () => /^\/mua-thuoc-tu-van\/?$/.test(window.location.pathname)
@@ -73,8 +73,8 @@ const getHealthNewsIdFromPath = () => {
 }
 
 function App() {
-  const [activeProductId, setActiveProductId] = useState(getProductIdFromPath())
-  const [activeCategoryId, setActiveCategoryId] = useState(getCategoryIdFromPath())
+	const [activeProductId, setActiveProductId] = useState(getProductIdFromPath())
+	const [activeCategoryId, setActiveCategoryId] = useState(getCategoryIdFromPath())
   const [isConsultPage, setIsConsultPage] = useState(isConsultPagePath())
   const [isCartPage, setIsCartPage] = useState(isCartPagePath())
   const [isCheckoutPage, setIsCheckoutPage] = useState(isCheckoutPagePath())
@@ -264,26 +264,26 @@ function App() {
 
   useEffect(() => {
     const onPopState = () => {
-      setActiveProductId(getProductIdFromPath())
-      setActiveCategoryId(getCategoryIdFromPath())
-      setIsConsultPage(isConsultPagePath())
-      setIsCartPage(isCartPagePath())
-      setIsCheckoutPage(isCheckoutPagePath())
-      setIsMomoResultPage(isMomoResultPagePath())
-      setIsVnpayResultPage(isVnpayResultPagePath())
-      setIsProfilePage(isProfilePagePath())
-      setActiveHealthNewsId(getHealthNewsIdFromPath())
+		setActiveProductId(getProductIdFromPath())
+		setActiveCategoryId(getCategoryIdFromPath())
+    setIsConsultPage(isConsultPagePath())
+    setIsCartPage(isCartPagePath())
+    setIsCheckoutPage(isCheckoutPagePath())
+    setIsMomoResultPage(isMomoResultPagePath())
+    setIsVnpayResultPage(isVnpayResultPagePath())
+    setIsProfilePage(isProfilePagePath())
+    setActiveHealthNewsId(getHealthNewsIdFromPath())
 
-      // Update new module states
-      setIsFamilyMedicinePage(isFamilyMedicinePath())
-      setIsAuthenticityCheckPage(isAuthenticityCheckPath())
-      setIsMyOrdersPage(isMyOrdersPath())
-      setIsDoctorAppointmentPage(isDoctorAppointmentPath())
-      setIsHealthCheckPage(isHealthCheckPath())
-      setIsPharmacyPartnerPage(isPharmacyPartnerPath())
+    // Update new module states
+    setIsFamilyMedicinePage(isFamilyMedicinePath())
+    setIsAuthenticityCheckPage(isAuthenticityCheckPath())
+    setIsMyOrdersPage(isMyOrdersPath())
+    setIsDoctorAppointmentPage(isDoctorAppointmentPath())
+    setIsHealthCheckPage(isHealthCheckPath())
+    setIsPharmacyPartnerPage(isPharmacyPartnerPath())
 
-      setIsEventPage(isEventPagePath())
-      setActiveEventSlug(getEventSlugFromPath())
+    setIsEventPage(isEventPagePath())
+    setActiveEventSlug(getEventSlugFromPath())
     }
 
     window.addEventListener('popstate', onPopState)
@@ -293,9 +293,9 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    scrollToTop()
-  }, [activeProductId, activeCategoryId])
+	useEffect(() => {
+		scrollToTop()
+	}, [activeProductId, activeCategoryId])
 
   useEffect(() => {
     scrollToTop()
@@ -367,17 +367,6 @@ function App() {
   const handleFloatingAiChat = () => {
     setIsChatWidgetOpen(true)
   }
-
-  useEffect(() => {
-    const handleOpenChatbot = () => {
-      setIsChatWidgetOpen(true)
-    }
-
-    window.addEventListener('openChatbot', handleOpenChatbot)
-    return () => {
-      window.removeEventListener('openChatbot', handleOpenChatbot)
-    }
-  }, [])
 
   // ==================== SHARED OVERLAYS ====================
   const renderCallOverlays = () => (

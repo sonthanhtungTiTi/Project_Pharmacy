@@ -17,18 +17,6 @@ interface ProductCardProps {
 	onViewDetail?: (productId: string) => void
 }
 
-const formatPriceLabel = (value: string) => {
-	const rawText = String(value || '').trim()
-	const digits = rawText.replace(/[^0-9]/g, '')
-	if (!digits) {
-		return rawText
-	}
-
-	const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits))
-	const suffix = rawText.replace(/[0-9\s.,]/g, '')
-	return suffix ? `${formatted}${suffix}` : formatted
-}
-
 function ProductCard({
 	productCode,
 	productId,
@@ -47,7 +35,6 @@ function ProductCard({
 	const safeTotal = totalCount > 0 ? totalCount : 20
 	const safeSold = Math.min(Math.max(soldCount, 0), safeTotal)
 	const progressPercent = Math.round((safeSold / safeTotal) * 100)
-	const displayPrice = formatPriceLabel(price)
 
 	const handleViewDetail = () => {
 		if (productId && onViewDetail) {
@@ -115,7 +102,7 @@ function ProductCard({
 						</h4>
 					</button>
 
-					<div className="text-[29px] font-extrabold leading-none text-[#f9414c]">{displayPrice}</div>
+					<div className="text-[29px] font-extrabold leading-none text-[#f9414c]">{price}</div>
 
 					<div className="flex items-center gap-1 text-sm">
 						{originalPrice ? <del className="text-slate-500">{originalPrice}</del> : null}
@@ -158,7 +145,7 @@ function ProductCard({
 			<AddToCartModal
 				isOpen={isAddModalOpen}
 				productName={name}
-				priceLabel={displayPrice}
+				priceLabel={price}
 				originalPriceLabel={originalPrice}
 				saleLabel={sale}
 				onClose={() => setIsAddModalOpen(false)}

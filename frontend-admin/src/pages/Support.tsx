@@ -15,11 +15,11 @@ const SOCKET_URL =
   (import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '')
 
 const statusLabelMap: Record<'all' | ChatConversationStatus, string> = {
-	all: 'Tất cả',
+	all: 'Tat ca',
 	ai: 'AI',
-	human_pending: 'Chờ nhân viên',
-	human: 'Đang có nhân viên',
-	closed: 'Đã đóng',
+	human_pending: 'Cho nhan vien',
+	human: 'Dang co nhan vien',
+	closed: 'Da dong',
 }
 
 const statusClassMap: Record<ChatConversationStatus, string> = {
@@ -83,12 +83,6 @@ const formatDateTime = (value: string) => {
 	})
 }
 
-const getMessageImageUrl = (message: ChatMessage) => {
-  const meta = (message.meta || {}) as Record<string, unknown>
-  const raw = meta.imageUrl || meta.image
-  return typeof raw === 'string' ? raw.trim() : ''
-}
-
 const toConversationListItem = (
 	conversation: ChatConversation,
 	latestMessage: ChatConversationListItem['latestMessage'] | null,
@@ -99,7 +93,7 @@ const toConversationListItem = (
 
 export default function Support() {
   const [socket, setSocket] = useState<Socket | null>(null)
-  const [currentUserName, setCurrentUserName] = useState('Nhân viên')
+  const [currentUserName, setCurrentUserName] = useState('Nhan vien')
 	const [customers, setCustomers] = useState<AdminUserItem[]>([])
 	const [loadingCustomers, setLoadingCustomers] = useState(true)
 
@@ -120,36 +114,19 @@ export default function Support() {
 	const [statusFilter, setStatusFilter] = useState<'all' | ChatConversationStatus>('all')
 	const [messageDraft, setMessageDraft] = useState('')
 	const [actioningPrescription, setActioningPrescription] = useState<string | null>(null)
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
-  const [imagePreviewScale, setImagePreviewScale] = useState(1)
 
   const selectedConversation = useMemo(() => {
     return conversations.find((item) => item.id === selectedConversationId) || null
   }, [conversations, selectedConversationId])
-
-  const openImagePreview = (url: string) => {
-    if (!url) return
-    setImagePreviewUrl(url)
-    setImagePreviewScale(1)
-  }
-
-  const closeImagePreview = () => {
-    setImagePreviewUrl(null)
-    setImagePreviewScale(1)
-  }
-
-  const adjustPreviewScale = (delta: number) => {
-    setImagePreviewScale((prev) => Math.min(4, Math.max(1, prev + delta)))
-  }
 
   useEffect(() => {
     const userRaw = localStorage.getItem('adminUser')
     if (userRaw) {
       try {
         const parsed = JSON.parse(userRaw) as { fullName?: string; name?: string; email?: string }
-        setCurrentUserName(parsed.fullName || parsed.name || parsed.email || 'Nhân viên')
+        setCurrentUserName(parsed.fullName || parsed.name || parsed.email || 'Nhan vien')
       } catch {
-        setCurrentUserName('Nhân viên')
+        setCurrentUserName('Nhan vien')
       }
     }
 
@@ -179,7 +156,7 @@ export default function Support() {
     <T,>(eventName: string, payload: Record<string, unknown>) => {
       return new Promise<T>((resolve, reject) => {
         if (!socket) {
-          reject(new Error('Mất kết nối realtime'))
+          reject(new Error('Mat ket noi realtime'))
           return
         }
 
@@ -235,7 +212,7 @@ export default function Support() {
         return nextItems[0]?.id || ''
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tải danh sách hội thoại'
+      const message = error instanceof Error ? error.message : 'Khong the tai danh sach hoi thoai'
       setChatError(message)
     } finally {
       setLoadingConversations(false)
@@ -266,7 +243,7 @@ export default function Support() {
         return upsertConversationItem(prev, next)
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tải tin nhắn'
+      const message = error instanceof Error ? error.message : 'Khong the tai tin nhan'
       setChatError(message)
     } finally {
       setLoadingMessages(false)
@@ -349,15 +326,6 @@ export default function Support() {
           return prev
         }
 
-        if (
-          existing.latestMessage &&
-          existing.latestMessage.content === incomingMessage.content &&
-          existing.latestMessage.senderType === incomingMessage.senderType &&
-          existing.latestMessage.createdAt === incomingMessage.createdAt
-        ) {
-          return prev
-        }
-
         const shouldResetUnread =
           payload.conversationId === selectedConversationId || incomingMessage.senderType !== 'user'
 
@@ -415,7 +383,7 @@ export default function Support() {
         setMessages((prev) => upsertMessages(prev, [systemMessage]))
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể nhận hội thoại'
+      const message = error instanceof Error ? error.message : 'Khong the nhan hoi thoai'
       setChatError(message)
     } finally {
       setJoiningConversation(false)
@@ -448,7 +416,7 @@ export default function Support() {
         setMessages((prev) => upsertMessages(prev, [systemMessage]))
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể đóng hội thoại'
+      const message = error instanceof Error ? error.message : 'Khong the dong hoi thoai'
       setChatError(message)
     } finally {
       setClosingConversation(false)
@@ -472,7 +440,7 @@ export default function Support() {
 
     try {
       if (!socket?.connected) {
-        throw new Error('Cần kết nối realtime để gửi tin nhắn')
+        throw new Error('Can ket noi realtime de gui tin nhan')
       }
 
       const data = await emitWithAck<{ conversation: ChatConversation; message: ChatMessage }>(
@@ -507,7 +475,7 @@ export default function Support() {
         return upsertConversationItem(prev, next)
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể gửi tin nhắn'
+      const message = error instanceof Error ? error.message : 'Khong the gui tin nhan'
       setChatError(message)
       setMessageDraft(content)
     } finally {
@@ -574,7 +542,7 @@ export default function Support() {
               }}
               className="px-2.5 py-1.5 rounded-md border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
-              Làm mới
+              Lam moi
             </button>
           </div>
 
@@ -588,7 +556,7 @@ export default function Support() {
                   setAppliedKeyword(keyword.trim())
                 }
               }}
-              placeholder="Tìm theo tên, email, session..."
+              placeholder="Tim theo ten, email, session..."
               className="h-9 flex-1 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-blue-400"
             />
             <button
@@ -619,9 +587,9 @@ export default function Support() {
 
           <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
             {loadingConversations ? (
-              <div className="p-6 text-sm text-center text-gray-500">Đang tải hội thoại...</div>
+              <div className="p-6 text-sm text-center text-gray-500">Dang tai hoi thoai...</div>
             ) : conversations.length === 0 ? (
-              <div className="p-6 text-sm text-center text-gray-500">Chưa có hội thoại nào</div>
+              <div className="p-6 text-sm text-center text-gray-500">Chua co hoi thoai nao</div>
             ) : (
               conversations.map((conversation) => {
                 const isActive = selectedConversationId === conversation.id
@@ -641,7 +609,7 @@ export default function Support() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">
-                          {conversation.client?.fullName || 'Khách hàng'}
+                          {conversation.client?.fullName || 'Khach hang'}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
                           {conversation.client?.email || conversation.sessionId}
@@ -653,7 +621,7 @@ export default function Support() {
                     </div>
 
                     <p className="mt-2 text-xs text-gray-600 line-clamp-2">
-                      {conversation.latestMessage?.content || 'Chưa có tin nhắn'}
+                      {conversation.latestMessage?.content || 'Chua co tin nhan'}
                     </p>
 
                     <div className="mt-2 flex items-center justify-between">
@@ -676,14 +644,14 @@ export default function Support() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-0 overflow-hidden">
           {!selectedConversation ? (
             <div className="h-full min-h-[520px] flex items-center justify-center text-gray-500 text-sm px-6 text-center">
-              Chọn một hội thoại ở cột bên trái để bắt đầu hỗ trợ.
+              Chon mot hoi thoai o cot ben trai de bat dau ho tro.
             </div>
           ) : (
             <>
               <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">
-                    {selectedConversation.client?.fullName || 'Khách hàng'}
+                    {selectedConversation.client?.fullName || 'Khach hang'}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
                     {selectedConversation.client?.email || selectedConversation.sessionId}
@@ -704,7 +672,7 @@ export default function Support() {
                       disabled={joiningConversation}
                       className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {joiningConversation ? 'Đang nhận...' : 'Nhận hỗ trợ'}
+                      {joiningConversation ? 'Dang nhan...' : 'Nhan ho tro'}
                     </button>
                   )}
 
@@ -717,7 +685,7 @@ export default function Support() {
                       disabled={closingConversation}
                       className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {closingConversation ? 'Đang đóng...' : 'Đóng hội thoại'}
+                      {closingConversation ? 'Dang dong...' : 'Dong hoi thoai'}
                     </button>
                   )}
                 </div>
@@ -726,18 +694,17 @@ export default function Support() {
               <div className="h-[420px] overflow-y-auto bg-gray-50 px-4 py-3 space-y-2">
                 {loadingMessages ? (
                   <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                    Dang tải tin nhắn...
+                    Dang tai tin nhan...
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                    Hội thoại này chưa có tin nhắn.
+                    Hoi thoai nay chua co tin nhan.
                   </div>
                 ) : (
                   messages.map((message) => {
                     const isSystem = message.senderType === 'system'
                     const isAdmin = message.senderType === 'admin'
                     const isUser = message.senderType === 'user'
-                    const imageUrl = getMessageImageUrl(message)
 
                     if (isSystem) {
                       const reqMatch = message.content.match(/Mã yêu cầu: ([a-zA-Z0-9]+)/)
@@ -792,17 +759,8 @@ export default function Support() {
                           }`}
                         >
                           <p className="text-sm leading-5">{message.content}</p>
-                          {imageUrl && (
-                            <button
-                              type="button"
-                              onClick={() => openImagePreview(imageUrl)}
-                              className="mt-2 block overflow-hidden rounded-lg border border-white/20"
-                            >
-                              <img src={imageUrl} alt="Anh dinh kem" className="max-h-40 w-full object-cover" />
-                            </button>
-                          )}
                           <p className={`mt-1 text-[10px] ${isAdmin || !isUser ? 'text-white/80' : 'text-gray-500'}`}>
-                            {message.senderName || (isAdmin ? currentUserName : isUser ? 'Khách hàng' : 'AI')} • {formatDateTime(message.createdAt)}
+                            {message.senderName || (isAdmin ? currentUserName : isUser ? 'Khach hang' : 'AI')} • {formatDateTime(message.createdAt)}
                           </p>
                         </div>
                       </div>
@@ -823,7 +781,7 @@ export default function Support() {
                       }
                     }}
                     disabled={selectedConversation.status === 'closed' || sendingMessage}
-                    placeholder={selectedConversation.status === 'closed' ? 'Hội thoại đã đóng' : 'Nhập tin nhắn phản hồi...'}
+                    placeholder={selectedConversation.status === 'closed' ? 'Hoi thoai da dong' : 'Nhap tin nhan phan hoi...'}
                     className="h-10 flex-1 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-blue-400"
                   />
                   <button
@@ -853,7 +811,7 @@ export default function Support() {
             }}
             className="px-2.5 py-1.5 rounded-md border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
-            Làm mới
+            Lam moi
           </button>
         </div>
 
@@ -862,7 +820,7 @@ export default function Support() {
         ) : customers.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <div className="text-5xl mb-3 text-blue-500"><FontAwesomeIcon icon={faUsers} /></div>
-            <p className="text-sm">Không có khach hang nao.</p>
+            <p className="text-sm">Khong co khach hang nao.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -872,58 +830,12 @@ export default function Support() {
                   <p className="text-sm font-semibold text-gray-900 truncate">{customer.fullName}</p>
                   <p className="text-xs text-gray-500 truncate">{customer.email}</p>
                 </div>
-                <p className="text-xs text-gray-500">Chi goi trong lich tu van da xác nhận.</p>
+                <p className="text-xs text-gray-500">Chi goi trong lich tu van da xac nhan.</p>
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {imagePreviewUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
-          onClick={closeImagePreview}
-        >
-          <div
-            className="relative max-h-full max-w-[90vw]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="absolute right-2 top-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => adjustPreviewScale(-0.2)}
-                className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 shadow"
-              >
-                -
-              </button>
-              <button
-                type="button"
-                onClick={() => adjustPreviewScale(0.2)}
-                className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 shadow"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={closeImagePreview}
-                className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 shadow"
-              >
-                Dong
-              </button>
-            </div>
-            <img
-              src={imagePreviewUrl}
-              alt="Anh phong to"
-              style={{ transform: `scale(${imagePreviewScale})` }}
-              className="max-h-[85vh] max-w-[90vw] origin-center rounded-xl bg-white/10 object-contain shadow-2xl"
-              onWheel={(event) => {
-                event.preventDefault()
-                adjustPreviewScale(event.deltaY > 0 ? -0.2 : 0.2)
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

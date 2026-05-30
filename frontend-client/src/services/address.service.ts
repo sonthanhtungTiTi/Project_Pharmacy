@@ -48,7 +48,7 @@ const getAuthHeaders = () => {
 	const accessToken = getAccessToken()
 
 	if (!accessToken) {
-		throw new Error('Vui lòng dang nhập de quan ly địa chỉ')
+		throw new Error('Vui long dang nhap de quan ly dia chi')
 	}
 
 	return {

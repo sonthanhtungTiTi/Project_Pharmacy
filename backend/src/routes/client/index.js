@@ -32,16 +32,4 @@ router.use('/staff', staffRoutes)
 router.use('/chat', chatRoutes)
 router.use('/prescriptions', prescriptionRoutes)
 
-const eventRoutes = require('./event.route')
-const familyMedicineRoutes = require('./familyMedicine.route')
-const authenticityRoutes = require('./authenticity.route')
-const appointmentRoutes = require('./appointment.route')
-const partnerRoutes = require('./partner.route')
-
-router.use('/events', eventRoutes)
-router.use('/family-medicines', familyMedicineRoutes)
-router.use('/authenticity-check', authenticityRoutes)
-router.use('/appointments', appointmentRoutes)
-router.use('/partners', partnerRoutes)
-
 module.exports = router

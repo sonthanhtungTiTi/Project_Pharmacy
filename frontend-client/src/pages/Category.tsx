@@ -75,7 +75,7 @@ function Category({ categoryId, onBackHome, onOpenProductDetail }: CategoryPageP
 				setProducts([])
 				setTotalProducts(0)
 				setTotalPages(1)
-				setError(apiError instanceof Error ? apiError.message : 'Không thể tai danh sách sản phẩm')
+				setError(apiError instanceof Error ? apiError.message : 'Khong the tai danh sach san pham')
 			} finally {
 				setIsLoading(false)
 			}

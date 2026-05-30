@@ -27,29 +27,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       index: true,
     },
-    // Mảng 3 vector, mỗi vector gồm 128 float.
-    // Được trích xuất bằng @vladmandic/face-api TinyFaceDetector (inputSize=416).
-    // select: false → không bao giờ trả về trong API response thông thường.
-    faceDescriptors: {
-      type: [[Number]],
-      default: [],
-      select: false,
-    },
-    faceIdEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    faceIdEnrolledAt: {
-      type: Date,
-      default: null,
-    },
-    // Phiên bản mô hình AI dùng khi đăng ký Face ID.
-    // v1 = SsdMobilenetv1 (cũ), v2 = TinyFaceDetector inputSize=416 (hiện tại)
-    // Dùng để phát hiện user cần re-enroll khi nâng cấp model
-    faceDescriptorVersion: {
-      type: Number,
-      default: 1,
-    },
     avatar: {
       type: String,
       default: '',
@@ -73,7 +50,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['customer', 'pharmacist', 'warehouse_staff', 'sales_staff', 'manager', 'admin', 'banned', 'doctor'],
+      enum: ['customer', 'pharmacist', 'warehouse_staff', 'sales_staff', 'manager', 'admin', 'banned'],
       default: 'customer',
     },
     permissions: {
@@ -103,10 +80,5 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ role: 1 })
 userSchema.index({ isActive: 1 })
 userSchema.index({ role: 1, isActive: 1 })
-
-// Index cho Face ID: dùng cho 1:N lookup (tìm tất cả user đã bật Face ID)
-// Hiện tại luồng 1:1 (biết email trước) không cần index này,
-// nhưng cần thiết nếu sau này mở rộng sang nhận diện không cần email.
-userSchema.index({ faceIdEnabled: 1 })
 
 module.exports = mongoose.model('User', userSchema)

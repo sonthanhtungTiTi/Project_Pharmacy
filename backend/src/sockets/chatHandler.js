@@ -212,15 +212,13 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 		const done = asCallback(callback)
 		const conversationId = String(payload?.conversationId || '').trim()
 		const content = String(payload?.content || '').trim()
-		const meta = payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}
-		const hasImage = Boolean(meta?.imageUrl || meta?.image)
 
 		if (!conversationId) {
 			done({ success: false, error: 'conversationId is required' })
 			return
 		}
 
-		if (!content && !hasImage) {
+		if (!content) {
 			done({ success: false, error: 'content is required' })
 			return
 		}
@@ -232,7 +230,6 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 					staffName: userName,
 					conversationId,
 					content,
-					meta,
 				})
 
 				const clientId = String(data.conversation?.client?.id || '')
@@ -258,7 +255,6 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 				clientName: userName,
 				conversationId,
 				content,
-				meta,
 			})
 
 			socket.join(conversationRoom(data.conversation.id))
@@ -266,11 +262,6 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 			const clientId = String(data.conversation?.client?.id || data.conversation?.clientId || '')
 			if (data.userMessage) {
 				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
-					conversationId: data.conversation.id,
-					message: data.userMessage,
-				})
-
-				emitToSupportStaff(io, onlineUsers, 'chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.userMessage,
 				})
