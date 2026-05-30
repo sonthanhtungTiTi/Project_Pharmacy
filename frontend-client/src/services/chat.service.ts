@@ -47,6 +47,10 @@ export interface ChatMessage {
 	action: string
 	meta: Record<string, unknown> & {
 		productSuggestions?: ChatProductSuggestion[]
+		imageUrl?: string
+		imagePublicId?: string
+		imageName?: string
+		imageSize?: number
 	}
 	createdAt: string
 	updatedAt: string
@@ -144,4 +148,38 @@ export const sendChatMessage = async (conversationId: string, message: string) =
 	})
 
 	return parseApiResponse<ChatSendMessageResult>(response)
+}
+
+export const sendChatMessageWithMeta = async (
+	conversationId: string,
+	message: string,
+	meta: Record<string, unknown>,
+) => {
+	const response = await fetch(`${API_BASE_URL}/client/chat/message`, {
+		method: 'POST',
+		headers: getAuthHeaders(),
+		body: JSON.stringify({ conversationId, message, meta }),
+	})
+
+	return parseApiResponse<ChatSendMessageResult>(response)
+}
+
+export const uploadChatImage = async (file: File) => {
+	const token = localStorage.getItem('clientAccessToken')
+	if (!token) {
+		throw new Error('Vui lòng đăng nhập để sử dụng tư vấn')
+	}
+
+	const formData = new FormData()
+	formData.append('image', file)
+
+	const response = await fetch(`${API_BASE_URL}/client/chat/upload-image`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${token}`,
+		},
+		body: formData,
+	})
+
+	return parseApiResponse<{ url: string; publicId: string }>(response)
 }

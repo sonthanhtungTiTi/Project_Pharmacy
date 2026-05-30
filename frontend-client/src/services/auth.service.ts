@@ -8,6 +8,7 @@ export interface AuthUser {
 	dateOfBirth?: string
 	role: string
 	provider: string
+	faceIdEnabled?: boolean
 }
 
 interface AuthResponse {

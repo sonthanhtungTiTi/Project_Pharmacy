@@ -203,7 +203,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenHealthNews }: Hom
 				setHealthNews(data.slice(0, 5))
 			} catch (error) {
 				setHealthNews([])
-				setHealthNewsError(error instanceof Error ? error.message : 'Khong the tai ban tin suc khoe')
+				setHealthNewsError(error instanceof Error ? error.message : 'Không thể tai bản tin sức khỏe')
 			} finally {
 				setIsLoadingHealthNews(false)
 			}
@@ -243,7 +243,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenHealthNews }: Hom
 			} catch (error) {
 				setCategories([])
 				setSections([])
-				setProductError(error instanceof Error ? error.message : 'Khong the tai danh muc va san pham')
+				setProductError(error instanceof Error ? error.message : 'Không thể tai danh mục và sản phẩm')
 			} finally {
 				setIsLoadingProducts(false)
 			}
@@ -532,7 +532,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenHealthNews }: Hom
 				</div>
 
 				{isLoadingHealthNews && (
-					<p className="py-4 text-sm text-slate-600">Dang tai ban tin suc khoe...</p>
+					<p className="py-4 text-sm text-slate-600">Dang tai bản tin sức khỏe...</p>
 				)}
 
 				{!isLoadingHealthNews && healthNewsError && (
@@ -540,7 +540,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenHealthNews }: Hom
 				)}
 
 				{!isLoadingHealthNews && !healthNewsError && healthNews.length === 0 && (
-					<p className="py-4 text-sm text-slate-600">Chua co ban tin suc khoe.</p>
+					<p className="py-4 text-sm text-slate-600">Chua co bản tin sức khỏe.</p>
 				)}
 
 				{!isLoadingHealthNews && !healthNewsError && healthNews.length > 0 && (

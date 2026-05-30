@@ -1,5 +1,6 @@
 const chatService = require('../../services/chat/chat.service')
 const callHandler = require('../../sockets/callHandler')
+const { uploadToCloudinary } = require('../../services/upload.service')
 
 const { SUPPORT_ROLES } = chatService
 
@@ -27,6 +28,11 @@ const emitConversationEvents = (io, data) => {
 
 	if (data.userMessage) {
 		io.to(roomName).to(clientId).emit('chat:message:new', {
+			conversationId,
+			message: data.userMessage,
+		})
+
+		emitToSupportStaff(io, 'chat:message:new', {
 			conversationId,
 			message: data.userMessage,
 		})
@@ -146,10 +152,12 @@ const sendMessage = async (req, res) => {
 	try {
 		const userId = req.user?.userId
 		const userName = req.user?.fullName || req.user?.email || 'Khach hang'
-		const { conversationId, message } = req.body || {}
+		const { conversationId, message, meta } = req.body || {}
 		const content = String(message || '').trim()
+		const metaPayload = meta && typeof meta === 'object' ? meta : {}
+		const hasImage = Boolean(metaPayload?.imageUrl || metaPayload?.image)
 
-		if (!content) {
+		if (!content && !hasImage) {
 			return res.status(400).json({
 				success: false,
 				message: 'message is required',
@@ -162,6 +170,7 @@ const sendMessage = async (req, res) => {
 			clientName: userName,
 			conversationId: conversationId || null,
 			content,
+			meta: metaPayload,
 		})
 
 		const io = req.app.get('io')
@@ -217,10 +226,70 @@ const handleChatWithAI = async (req, res) => {
 	}
 }
 
+const uploadChatImage = async (req, res) => {
+	try {
+		if (!req.file) {
+			return res.status(400).json({
+				success: false,
+				message: 'No image file uploaded',
+			})
+		}
+
+		const hasCloudinaryConfig = Boolean(
+			process.env.CLOUDINARY_CLOUD_NAME &&
+			process.env.CLOUDINARY_API_KEY &&
+			process.env.CLOUDINARY_API_SECRET,
+		)
+
+		if (!hasCloudinaryConfig) {
+			const mimeType = req.file.mimetype || 'image/jpeg'
+			const base64 = req.file.buffer.toString('base64')
+			return res.status(200).json({
+				success: true,
+				message: 'Image uploaded successfully',
+				data: {
+					url: `data:${mimeType};base64,${base64}`,
+					publicId: '',
+				},
+			})
+		}
+
+		const uploaded = await uploadToCloudinary(req.file.buffer, 'chat')
+
+		return res.status(200).json({
+			success: true,
+			message: 'Image uploaded successfully',
+			data: uploaded,
+		})
+	} catch (error) {
+		const message = error?.message || 'Upload image failed'
+		if (String(message).toLowerCase().includes('api_key')) {
+			const mimeType = req.file?.mimetype || 'image/jpeg'
+			const base64 = req.file?.buffer?.toString('base64') || ''
+			if (base64) {
+				return res.status(200).json({
+					success: true,
+					message: 'Image uploaded successfully',
+					data: {
+						url: `data:${mimeType};base64,${base64}`,
+						publicId: '',
+					},
+				})
+			}
+		}
+		return res.status(500).json({
+			success: false,
+			message: message,
+			error: message,
+		})
+	}
+}
+
 module.exports = {
 	getMyConversation,
 	getMyMessages,
 	requestHumanSupport,
 	sendMessage,
 	handleChatWithAI,
+	uploadChatImage,
 }

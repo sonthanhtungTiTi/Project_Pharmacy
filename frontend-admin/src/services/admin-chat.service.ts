@@ -19,7 +19,12 @@ export interface ChatMessage {
 	content: string
 	intent: string
 	action: string
-	meta: Record<string, unknown>
+		meta: Record<string, unknown> & {
+			imageUrl?: string
+			imagePublicId?: string
+			imageName?: string
+			imageSize?: number
+		}
 	createdAt: string
 	updatedAt: string
 }

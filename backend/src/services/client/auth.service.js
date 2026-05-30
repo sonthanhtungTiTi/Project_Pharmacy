@@ -46,6 +46,7 @@ const sanitizeUser = (user) => ({
 	dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().slice(0, 10) : '',
 	role: user.role,
 	provider: user.provider,
+	faceIdEnabled: user.faceIdEnabled || false,
 })
 
 const maskEmail = (email) => {

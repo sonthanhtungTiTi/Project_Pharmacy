@@ -118,22 +118,20 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
               <div className="mb-6 flex space-x-1 rounded-xl bg-gray-100 p-1">
                 <button
                   onClick={() => setActiveTab('upload')}
-                  className={`flex flex-1 items-center justify-center rounded-lg py-2.5 text-sm font-medium transition-all ${
-                    activeTab === 'upload'
-                      ? 'bg-white text-green-600 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`flex flex-1 items-center justify-center rounded-lg py-2.5 text-sm font-medium transition-all ${activeTab === 'upload'
+                    ? 'bg-white text-green-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                 >
                   <CloudUploadIcon className="mr-2" fontSize="small" />
                   Tải ảnh lên
                 </button>
                 <button
                   onClick={() => setActiveTab('camera')}
-                  className={`flex flex-1 items-center justify-center rounded-lg py-2.5 text-sm font-medium transition-all ${
-                    activeTab === 'camera'
-                      ? 'bg-white text-green-600 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`flex flex-1 items-center justify-center rounded-lg py-2.5 text-sm font-medium transition-all ${activeTab === 'camera'
+                    ? 'bg-white text-green-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                 >
                   <PhotoCameraIcon className="mr-2" fontSize="small" />
                   Chụp ảnh
@@ -144,9 +142,8 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
               {activeTab === 'upload' ? (
                 <div
                   {...getRootProps()}
-                  className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 py-16 transition-colors ${
-                    isDragActive ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-green-400 hover:bg-gray-100'
-                  }`}
+                  className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 py-16 transition-colors ${isDragActive ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-green-400 hover:bg-gray-100'
+                    }`}
                 >
                   <input {...getInputProps()} />
                   <div className="rounded-full bg-green-100 p-4 text-green-600 mb-4">
@@ -236,9 +233,9 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                   <div className="max-h-64 overflow-y-auto space-y-3 pr-2">
                     {results.map((item) => (
                       <div key={item.id} className="flex items-center gap-4 rounded-xl border border-gray-100 p-3 shadow-sm hover:shadow-md transition bg-white">
-                        <img 
-                          src={typeof item.images === 'string' ? item.images.split(';')[0].trim() : (item.images[0] || 'https://via.placeholder.com/80')} 
-                          alt={item.productName} 
+                        <img
+                          src={typeof item.images === 'string' ? item.images.split(';')[0].trim() : (item.images[0] || 'https://via.placeholder.com/80')}
+                          alt={item.productName}
                           className="h-16 w-16 rounded-lg object-cover"
                         />
                         <div className="flex-1">
@@ -251,7 +248,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                               ⚠️ Kê đơn
                             </span>
                           )}
-                          <button 
+                          <button
                             onClick={() => {
                               window.location.href = `/product/${item.id}`
                             }}

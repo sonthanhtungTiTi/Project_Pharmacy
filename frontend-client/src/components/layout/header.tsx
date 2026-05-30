@@ -38,6 +38,18 @@ const topBanners = [
 	},
 ]
 
+const formatPriceLabel = (value: string | number | null | undefined) => {
+	const rawText = String(value ?? '').trim()
+	const digits = rawText.replace(/[^0-9]/g, '')
+	if (!digits) {
+		return rawText
+	}
+
+	const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits))
+	const suffix = rawText.replace(/[0-9\s.,]/g, '')
+	return suffix ? `${formatted}${suffix}` : formatted
+}
+
 function Header({
 	authUser,
 	onOpenAuth,
@@ -195,7 +207,7 @@ function Header({
 												</div>
 												<div className="min-w-0 flex-1">
 													<p className="line-clamp-2 text-sm font-medium text-slate-700">{item.productName}</p>
-													<p className="mt-0.5 text-xs text-[#23a840]">{item.price}</p>
+													<p className="mt-0.5 text-xs text-[#23a840]">{formatPriceLabel(item.price)}</p>
 												</div>
 											</button>
 										))}

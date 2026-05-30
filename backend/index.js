@@ -15,6 +15,8 @@ const clientRoutes = require('./src/routes/client')
 const adminRoutes = require('./src/routes/admin')
 const { errorHandler } = require('./src/middleware/errorHandler')
 const { startChatCleanupJob } = require('./src/jobs/chatCleanup.job')
+const { loadFaceModels } = require('./src/services/ai/faceModelLoader')
+const { warmupFaceModel } = require('./src/services/ai/face.service')
 
 dotenv.config()
 
@@ -98,6 +100,9 @@ const startServer = async () => {
 
         // Khởi động background jobs
         startChatCleanupJob()
+
+        // Khởi động tải model AI cho Face ID, sau đó warm-up để loại bỏ cold-start latency
+        loadFaceModels().then(() => warmupFaceModel()).catch(() => {})
     } catch (error) {
         console.error('Failed to start server:', error.message)
         process.exit(1)

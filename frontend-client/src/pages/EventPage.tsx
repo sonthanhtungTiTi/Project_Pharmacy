@@ -18,7 +18,7 @@ function EventPage({ slug, onOpenProductDetail }: EventPageProps) {
 	useEffect(() => {
 		const loadEvent = async () => {
 			if (!slug) return
-			
+
 			try {
 				setIsLoading(true)
 				setError('')
@@ -81,12 +81,12 @@ function EventPage({ slug, onOpenProductDetail }: EventPageProps) {
 			{(data.articleContent || (data.subImages && data.subImages.length > 0)) && (
 				<section className="mt-4 rounded-2xl bg-white p-6 shadow-sm">
 					{data.articleContent && (
-						<article 
+						<article
 							className="prose prose-slate max-w-none prose-p:text-slate-700 prose-headings:text-slate-900 prose-a:text-[#16a34a] hover:prose-a:text-[#15803d]"
 							dangerouslySetInnerHTML={{ __html: data.articleContent }}
 						/>
 					)}
-					
+
 					{data.subImages && data.subImages.length > 0 && (
 						<div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							{data.subImages.map((img, idx) => (

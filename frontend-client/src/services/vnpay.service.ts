@@ -95,7 +95,7 @@ export const checkVnpayOrderStatus = async (orderId: string): Promise<VnpayOrder
   const data = (await response.json().catch(() => null)) as VnpayOrderStatusResponse | null
 
   if (!response.ok || !data?.success || !data.orderId || !data.orderCode) {
-    throw new Error(data?.message || 'Khong the lay trang thai thanh toan VNPAY')
+    throw new Error(data?.message || 'Không thể lay trang thai thanh toan VNPAY')
   }
 
   return {

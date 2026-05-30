@@ -28,11 +28,6 @@ const paymentMethodOptions: Array<{ value: PaymentMethod; label: string; descrip
 		description: 'Thanh toán trực tuyến qua cổng VNPay (ATM, QR, thẻ nội địa).',
 	},
 	{
-		value: 'e_wallet',
-		label: 'Ví điện tử',
-		description: 'Thanh toán qua ví điện tử liên kết.',
-	},
-	{
 		value: 'momo',
 		label: 'Momo',
 		description: 'Thanh toán qua ứng dụng Momo - nhanh, an toàn. *Đơn tự hủy nếu không thanh toán.',
@@ -191,7 +186,7 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 					console.error('Momo redirect error:', momoError)
 					const momoMessage =
 						momoError instanceof MomoPaymentError && momoError.resultCode === 98
-							? 'MoMo dang ban tao QR, vui long thu lai sau vai giay'
+							? 'MoMo dang ban tao QR, vui long thử lại sau vai giay'
 							: momoError instanceof Error
 								? momoError.message
 								: 'Khong tao duoc lien ket thanh toan Momo'
@@ -230,7 +225,7 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 
 					const normalizedVnpayMessage = vnpayMessage.trim().replace(/[.\s]+$/g, '')
 					setSubmitError(
-						`${normalizedVnpayMessage}. Don hang ${order.orderCode} da duoc tao, vui long thu lai thanh toan VNPAY.`
+						`${normalizedVnpayMessage}. Đơn hàng ${order.orderCode} đã được tao, vui long thử lại thanh toan VNPAY.`
 					)
 					return
 				}
@@ -240,7 +235,7 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 			await refreshCart()
 			setSubmitSuccess(`Đặt hàng thành công. Mã đơn hàng: ${order.orderCode}`)
 		} catch (apiError) {
-			setSubmitError(apiError instanceof Error ? apiError.message : 'Khong the thanh toan')
+			setSubmitError(apiError instanceof Error ? apiError.message : 'Không thể thanh toan')
 		} finally {
 			setIsSubmitting(false)
 		}
@@ -331,11 +326,10 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 												setSelectedAddressId(item.id)
 												setIsAddressPickerOpen(false)
 											}}
-											className={`w-full rounded-lg border p-3 text-left transition ${
-												isSelected
-													? 'border-[#86c790] bg-[#e9f9ed]'
-													: 'border-slate-200 bg-white hover:border-[#b7dfbe]'
-											}`}
+											className={`w-full rounded-lg border p-3 text-left transition ${isSelected
+												? 'border-[#86c790] bg-[#e9f9ed]'
+												: 'border-slate-200 bg-white hover:border-[#b7dfbe]'
+												}`}
 										>
 											<p className="text-sm font-semibold text-slate-800">
 												{item.recipientName} - {item.phone}
@@ -420,10 +414,10 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 											<span className="mt-1 text-xs text-[#b45309]">Hỗ trợ JPG, PNG (tối đa 5MB)</span>
 										</div>
 									)}
-									<input 
-										type="file" 
-										accept="image/*" 
-										className="hidden" 
+									<input
+										type="file"
+										accept="image/*"
+										className="hidden"
 										onChange={handleImageUpload}
 										disabled={isUploadingRx}
 									/>
@@ -441,11 +435,10 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 								return (
 									<label
 										key={option.value}
-										className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${
-											isSelected
-												? 'border-[#bbf7d0] bg-[#f0fdf4]'
-												: 'border-slate-200 bg-white'
-										}`}
+										className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${isSelected
+											? 'border-[#bbf7d0] bg-[#f0fdf4]'
+											: 'border-slate-200 bg-white'
+											}`}
 									>
 										<input
 											type="radio"
@@ -515,8 +508,8 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 							{!selectedCheckoutAddress
 								? 'Vui lòng có địa chỉ mặc định trước khi thanh toán'
 								: hasRxItems && !prescriptionImage
-								? 'Vui lòng tải lên đơn thuốc hợp lệ'
-								: 'Vui lòng chọn sản phẩm hợp lệ từ giỏ hàng'}
+									? 'Vui lòng tải lên đơn thuốc hợp lệ'
+									: 'Vui lòng chọn sản phẩm hợp lệ từ giỏ hàng'}
 						</p>
 					)}
 

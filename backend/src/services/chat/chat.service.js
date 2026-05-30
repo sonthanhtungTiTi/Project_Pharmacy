@@ -136,6 +136,10 @@ const normalizeImageField = (value) => {
             return ''
         }
 
+        if (trimmed.startsWith('data:')) {
+            return trimmed
+        }
+
         if (trimmed.startsWith('[')) {
             try {
                 const parsed = JSON.parse(trimmed)
@@ -157,6 +161,14 @@ const normalizeImageField = (value) => {
     }
 
     return ''
+}
+
+const extractImageFromMeta = (meta) => {
+    if (!meta || typeof meta !== 'object') {
+        return ''
+    }
+
+    return normalizeImageField(meta.imageUrl || meta.image || '')
 }
 
 const pickRandomItems = (items, count) => {
@@ -813,14 +825,14 @@ const normalizeReadOnlyQueryPlan = (rawPlan) => {
 
 const buildReadOnlyQueryPlanWithOllama = async ({ message, symptomKeyword = '' }) => {
     const systemPrompt = [
-        'Ban la AI tao MongoDB query cho collection products trong nha thuoc.',
-        'Chi duoc tra ve JSON hop le, khong markdown.',
-        'Chi duoc doc du lieu, khong update/delete/insert.',
-        'Schema tra ve mot trong cac dang:',
+        'Bạn là AI tạo MongoDB query cho collection products trong nhà thuốc.',
+        'Chỉ được trả về JSON hợp lệ, TUYỆT ĐỐI không có markdown.',
+        'Chỉ được đọc dữ liệu, không update/delete/insert.',
+        'Khi tìm kiếm chuỗi văn bản (text), LUÔN LUÔN dùng toán tử $regex với $options: "i" để tìm kiếm tương đối và không phân biệt chữ hoa chữ thường. Ví dụ: {"filter": {"productName": {"$regex": "panadol", "$options": "i"}}}',
+        'Schema trả về một trong các dạng:',
         '{"operation":"find","filter":{},"projection":{},"sort":{},"limit":20}',
-        '{"operation":"aggregate","pipeline":[{"$match":{}},{"$sort":{}},{"$limit":20}],"limit":20}',
-        '{"operation":"countDocuments","filter":{}}',
-    ].join(' ')
+        '{"operation":"aggregate","pipeline":[{"$match":{}},{"$sort":{}},{"$limit":20}],"limit":20}'
+    ].join('\n')
 
     const prompt = [
         `User message: "${String(message || '').trim()}"`,
@@ -898,7 +910,7 @@ const searchProductsByLocalRules = async ({ message, symptomKeyword = '' }) => {
     if (symptomKeyword) {
         const normalizedSymptom = normalizeText(symptomKeyword);
         activeKeywords.add(normalizedSymptom);
-        
+
         const symptomTokens = tokenizeQuery(normalizedSymptom);
         symptomTokens.forEach(t => activeKeywords.add(t));
     }
@@ -906,20 +918,20 @@ const searchProductsByLocalRules = async ({ message, symptomKeyword = '' }) => {
     // 2. BẮT TỪ KHÓA DỰA TRÊN DANH MỤC SẢN PHẨM THỰC TẾ
     const medicalTerms = [
         // --- 1. Cơ xương khớp, gút ---
-        'co xuong khop', 'xuong khop', 'gut', 'gout', 'viem khop', 'thoai hoa khop', 
+        'co xuong khop', 'xuong khop', 'gut', 'gout', 'viem khop', 'thoai hoa khop',
         'dau khop', 'dau lung', 'dau vai gay', 'dau co', 'nhuc moi', 'bong gan', 'canxi',
 
         // --- 2. Da liễu, dị ứng ---
-        'da lieu', 'di ung', 'giam ngua', 'noi me day', 'man ngua', 'rom say', 'ham ta', 
-        'mun nhot', 'tri mun', 'nam da', 'lang ben', 'hac lao', 'con trung', 'muoi dot', 
+        'da lieu', 'di ung', 'giam ngua', 'noi me day', 'man ngua', 'rom say', 'ham ta',
+        'mun nhot', 'tri mun', 'nam da', 'lang ben', 'hac lao', 'con trung', 'muoi dot',
         'muoi chich', 'kien ba khoang', 'bong', 'tri seo',
 
         // --- 3. Dầu, Cao Xoa, Miếng Dán ---
-        'dau gio', 'dau tram', 'dau khuynh diep', 'dau nong', 'dau cu la', 'xoa bop', 
+        'dau gio', 'dau tram', 'dau khuynh diep', 'dau nong', 'dau cu la', 'xoa bop',
         'cao xoa', 'mieng dan', 'mieng dan ha sot', 'cao dan',
 
         // --- 4. Giảm đau, hạ sốt, kháng viêm ---
-        'giam dau', 'ha sot', 'khang viem', 'chong viem', 'dau dau', 'nhuc dau', 
+        'giam dau', 'ha sot', 'khang viem', 'chong viem', 'dau dau', 'nhuc dau',
         'dau rang', 'nhuc rang', 'dau bung',
 
         // --- 5. Hô hấp ---
@@ -929,27 +941,27 @@ const searchProductsByLocalRules = async ({ message, symptomKeyword = '' }) => {
         'khang sinh', 'khang nam', 'nhiem trung', 'viem nhiem',
 
         // --- 7. Mắt, tai mũi họng ---
-        'bo mat', 'nho mat', 'rua mat', 'kho mat', 'moi mat', 'dau mat do', 
-        'viem hong', 'dau hong', 'rat hong', 'viem xoang', 'viem mui', 'nghet mui', 
-        'ngat mui', 'so mui', 'chay nuoc mui', 'nuoc muoi sinh ly', 'nho mui', 'xit mui', 
+        'bo mat', 'nho mat', 'rua mat', 'kho mat', 'moi mat', 'dau mat do',
+        'viem hong', 'dau hong', 'rat hong', 'viem xoang', 'viem mui', 'nghet mui',
+        'ngat mui', 'so mui', 'chay nuoc mui', 'nuoc muoi sinh ly', 'nho mui', 'xit mui',
         'rua mui', 'nhiet mieng', 'viem nuou', 'chay mau chan rang', 'nuoc suc mieng',
 
         // --- 8. Thần kinh, não bộ ---
-        'than kinh', 'nao bo', 'chong mat', 'buon non', 'say xe', 'roi loan tien dinh', 
+        'than kinh', 'nao bo', 'chong mat', 'buon non', 'say xe', 'roi loan tien dinh',
         'bo nao', 'hoat huyet', 'tuan hoan nao', 'an than', 'mat ngu',
 
         // --- 9. Tiêu hóa, gan mật ---
-        'tieu hoa', 'gan mat', 'da day', 'ta trang', 'trao nguoc', 'viem loet', 
-        'tieu chay', 'tao bon', 'day hoi', 'kho tieu', 'chuong bung', 'men tieu hoa', 
+        'tieu hoa', 'gan mat', 'da day', 'ta trang', 'trao nguoc', 'viem loet',
+        'tieu chay', 'tao bon', 'day hoi', 'kho tieu', 'chuong bung', 'men tieu hoa',
         'men vi sinh', 'bu nuoc', 'oresol', 'bo gan', 'mat gan', 'giai doc gan', 'tri',
 
         // --- 10. Tiết niệu, sinh dục ---
-        'tiet nieu', 'sinh duc', 'viem duong tiet nieu', 'soi than', 'phu khoa', 
+        'tiet nieu', 'sinh duc', 'viem duong tiet nieu', 'soi than', 'phu khoa',
         'dung dich ve sinh', 'bao cao su', 'gel boi tron', 'que thu thai',
 
         // --- 11. Hỗ hợp (Vật tư y tế, Vitamin, Làm đẹp,...) ---
-        'vitamin', 'tang de khang', 'sat trung', 'povidine', 'oxy gia', 'con y te', 
-        'bang keo', 'bang gach', 'bong gon', 'khau trang', 'nhiet ke', 'sua rua mat', 
+        'vitamin', 'tang de khang', 'sat trung', 'povidine', 'oxy gia', 'con y te',
+        'bang keo', 'bang gach', 'bong gon', 'khau trang', 'nhiet ke', 'sua rua mat',
         'bang ve sinh', 'dau goi', 'sua tam'
     ];
 
@@ -990,8 +1002,8 @@ const searchProductsByLocalRules = async ({ message, symptomKeyword = '' }) => {
         isActive: true,
         $or: conditions,
     })
-    .select(PRODUCT_DETAIL_FIELDS)
-    .lean();
+        .select(PRODUCT_DETAIL_FIELDS)
+        .lean();
 
     // 6. Thuật toán Scoring thông minh
     const scoredDocs = rawDocs.map(doc => {
@@ -1005,10 +1017,10 @@ const searchProductsByLocalRules = async ({ message, symptomKeyword = '' }) => {
 
         if (targetPhrases.length > 0) {
             targetPhrases.forEach(phrase => {
-                if (textToSearch.includes(phrase)) score += 10; 
+                if (textToSearch.includes(phrase)) score += 10;
                 if (normalizedName.includes(phrase)) score += 50; // Trúng tên cụm từ -> Lên Top
                 if (normalizeText(doc.categoryName).includes(phrase)) score += 20; // Trúng tên danh mục -> Cộng điểm mạnh
-                if (normalizeText(doc.usageSummary).includes(phrase)) score += 15; 
+                if (normalizeText(doc.usageSummary).includes(phrase)) score += 15;
             });
         }
 
@@ -1077,7 +1089,7 @@ const classifyMessageFallback = (message) => {
         return {
             type: 'social',
             symptomKeyword: '',
-            reply: 'Chao mung ban den voi nha thuoc T&Q. Neu can tu van suc khoe, minh luon san sang ho tro.',
+            reply: 'Chào mừng bạn đến với nhà thuốc T&Q. Nếu cần tư vấn sức khỏe, mình luôn sẵn sàng hỗ trợ.',
             needsHuman: false,
         }
     }
@@ -1098,7 +1110,7 @@ const classifyClientMessage = async ({ message, history = [] }) => {
         .map((item) => `${item.senderType}: ${String(item.content || '').slice(0, 160)}`)
         .join('\n')
 
-   const systemPrompt = [
+    const systemPrompt = [
         'Bạn là Trợ lý AI phân tích ngữ nghĩa của nhà thuốc T&Q. Trách nhiệm của bạn là đọc tin nhắn và phân loại chính xác ý định của khách. TUYỆT ĐỐI chỉ trả về chuỗi JSON với định dạng: {"type":"social"|"consult", "symptomKeyword":"string", "reply":"string", "needsHuman":true|false}',
         'HÃY HỌC THUỘC 5 NHÓM TÌNH HUỐNG SAU VÀ BẮT CHƯỚC CÁCH PHÂN LOẠI:',
 
@@ -1154,19 +1166,19 @@ const classifyClientMessage = async ({ message, history = [] }) => {
         let needsHuman = Boolean(parsed.needsHuman) || fallback.needsHuman
 
         const msgToCheck = normalizeText(message);
-        const isInfoQuestion = msgToCheck.includes('co dung duoc khong') || 
-                               msgToCheck.includes('tre em') || 
-                               msgToCheck.includes('tac dung phu') || 
-                               msgToCheck.includes('ba bau') || 
-                               msgToCheck.includes('uong nhu the nao');
-        
+        const isInfoQuestion = msgToCheck.includes('co dung duoc khong') ||
+            msgToCheck.includes('tre em') ||
+            msgToCheck.includes('tac dung phu') ||
+            msgToCheck.includes('ba bau') ||
+            msgToCheck.includes('uong nhu the nao');
+
         if (isInfoQuestion) {
-            needsHuman = false; 
+            needsHuman = false;
         }
-        
+
         // TUY NHIÊN: Đảm bảo khách gõ chữ "gặp nhân viên" thì vẫn chuyển máy bình thường
         if (fallback.needsHuman) {
-            needsHuman = true; 
+            needsHuman = true;
         }
         if (normalizedType === 'social') {
             return {
@@ -1174,7 +1186,7 @@ const classifyClientMessage = async ({ message, history = [] }) => {
                 symptomKeyword: '',
                 reply:
                     reply ||
-                    'Chao mung ban den voi nha thuoc T&Q. Neu can tu van suc khoe, minh luon san sang ho tro.',
+                    'Chào mừng bạn đến với nhà thuốc T&Q. Nếu cần tư vấn sức khỏe, mình luôn sẵn sàng hỗ trợ.',
                 needsHuman,
             }
         }
@@ -1206,12 +1218,12 @@ const generateConsultReply = async ({ message, symptomKeyword, products }) => {
         'QUY TẮC TRẢ LỜI:',
         '1. LUÔN LUÔN giao tiếp bằng Tiếng Việt có dấu, chuẩn ngữ pháp, giọng điệu ân cần.',
         '2. Thấu cảm và đưa ra lời khuyên y tế: Nếu khách nói bệnh (VD: nhức đầu), hãy khuyên họ nghỉ ngơi, uống nhiều nước trước khi giới thiệu thuốc.',
-        '3. Giới thiệu sản phẩm: Dựa BẮT BUỘC vào danh sách sản phẩm được cung cấp. KHÔNG TỰ BỊA ra tên thuốc ngoài danh sách.',
+        '3. KHÔNG ĐƯỢC liệt kê trực tiếp tên/giá thuốc vào câu trả lời, vì hệ thống đã tự động hiển thị danh sách thẻ sản phẩm ở ngay bên dưới tin nhắn của bạn.',
         '4. XỬ LÝ CÂU HỎI KHÓ (QUAN TRỌNG): Nếu câu hỏi quá phức tạp hoặc bạn KHÔNG CHẮC CHẮN 100% về mặt y khoa, TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ BỊA ĐẶT. Hãy trả lời theo mẫu sau:',
         '"Dạ, đối với vấn đề của quý khách, để đảm bảo an toàn sức khỏe tuyệt đối, bạn có muốn mình kết nối với Dược sĩ/Bác sĩ chuyên môn của nhà thuốc để tư vấn trực tiếp cho bạn không ạ?"',
         '5. Kết thúc bằng một câu mời thân thiện: "Bạn có thể tham khảo các sản phẩm mình gợi ý bên dưới, hoặc nhấn nút yêu cầu tư vấn nếu cần dược sĩ hỗ trợ thêm nhé!"',
         '6.Nếu khách hỏi sâu về tác dụng phụ, độ tuổi sử dụng, tương tác thuốc... hãy tìm thông tin trong phần mô tả sản phẩm để trả lời.',
-        
+
         '(--- PHẦN BỔ SUNG ĐỂ HỆ THỐNG XỬ LÝ LOGIC ---)',
         '* LƯU Ý 1: Nếu bạn đã phải áp dụng Quy tắc 4 (Khuyên kết nối bác sĩ), bạn TUYỆT ĐỐI PHẢI BỎ QUA Quy tắc 3 và Quy tắc 5. KHÔNG ĐƯỢC vừa khuyên gặp bác sĩ lại vừa mời mua thuốc.',
         '* LƯU Ý 2: Ở Quy tắc 6, nếu phần mô tả sản phẩm KHÔNG CÓ thông tin để trả lời, BẮT BUỘC chuyển sang dùng ngay câu trả lời của Quy tắc 4.',
@@ -1246,10 +1258,10 @@ const generateConsultReply = async ({ message, symptomKeyword, products }) => {
     }
 
     if (symptomKeyword) {
-        return `Ban dang gap trieu chung ${symptomKeyword}. Minh da chon mot so san pham phu hop de ban tham khao ben duoi.`
+        return `Bạn đang gặp triệu chứng ${symptomKeyword}. Mình đã chọn một số sản phẩm phù hợp để bạn tham khảo bên dưới.`
     }
 
-    return 'Minh da tim thay mot so san pham phu hop de ban tham khao ben duoi.'
+    return 'Mình đã tìm thấy một số sản phẩm phù hợp để bạn tham khảo bên dưới.'
 }
 
 const extractOrderCode = (text) => {
@@ -1286,13 +1298,22 @@ const searchOrdersForUser = async ({ clientId, query }) => {
     }))
 }
 
-const handleClientMessage = async ({ clientId, clientName = '', conversationId, content }) => {
+const handleClientMessage = async ({ clientId, clientName = '', conversationId, content, meta = {} }) => {
     ensureObjectId(clientId, 'clientId')
 
+    const imageUrl = extractImageFromMeta(meta)
     const normalizedContent = String(content || '').trim()
-    if (!normalizedContent) {
+    if (!normalizedContent && !imageUrl) {
         throw new ChatServiceError('Message content is required', 400)
     }
+
+    const finalContent = normalizedContent || (imageUrl ? 'Ảnh đính kèm' : '')
+    const finalMeta = imageUrl
+        ? {
+            ...meta,
+            imageUrl,
+        }
+        : meta
 
     const conversation = await findOrCreateActiveConversation(clientId)
 
@@ -1301,9 +1322,10 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         senderType: 'user',
         senderId: clientId,
         senderName: String(clientName || '').trim(),
-        content: normalizedContent,
+        content: finalContent,
         intent: INTENTS.CHAT,
         action: INTENTS.CHAT,
+        meta: finalMeta,
     })
 
     const userMessagePayload = serializeMessage(userMessage)
@@ -1320,6 +1342,30 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
             systemMessage: null,
             requiresHuman: false,
             action: INTENTS.CHAT,
+        }
+    }
+
+    if (imageUrl) {
+        const shouldEscalate = conversation.status !== 'human' && conversation.status !== 'human_pending'
+        const updatedConversation = await touchConversation(conversation._id, {
+            status: shouldEscalate ? 'human_pending' : conversation.status,
+            lastAction: shouldEscalate ? INTENTS.CALL_HUMAN : conversation.lastAction,
+            metadata: shouldEscalate
+                ? {
+                    ...conversation.metadata,
+                    lastHumanRequestReason: 'image_upload',
+                }
+                : conversation.metadata,
+            unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1,
+        })
+
+        return {
+            conversation: serializeConversation(updatedConversation),
+            userMessage: userMessagePayload,
+            botMessage: null,
+            systemMessage: null,
+            requiresHuman: shouldEscalate,
+            action: shouldEscalate ? INTENTS.CALL_HUMAN : INTENTS.CHAT,
         }
     }
 
@@ -1386,6 +1432,11 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         products: suggestions,
     })
 
+    let responseCategory = 'product_consultation'
+    if (consultReply.includes('kết nối với Dược sĩ/Bác sĩ') || consultReply.includes('kết nối với nhân viên')) {
+        responseCategory = 'suggest_human'
+    }
+
     const botDoc = await appendMessage({
         conversationId: conversation._id,
         senderType: 'bot',
@@ -1393,7 +1444,7 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         intent: INTENTS.CONSULTATION,
         action: INTENTS.FIND_PRODUCT,
         meta: {
-            responseCategory: 'product_consultation',
+            responseCategory,
             symptomKeyword,
             queryPlan: plan || null,
             productSuggestions: suggestions,
@@ -1414,16 +1465,29 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
     }
 }
 
-const handleStaffMessage = async ({ staffId, staffName = '', conversationId, content }) => {
+const handleStaffMessage = async ({ staffId, staffName = '', conversationId, content, meta = {} }) => {
     const { staff, conversation } = await ensureStaffCanAccessConversation(staffId, conversationId)
+    const imageUrl = extractImageFromMeta(meta)
+    const normalizedContent = String(content || '').trim()
+    if (!normalizedContent && !imageUrl) {
+        throw new ChatServiceError('Message content is required', 400)
+    }
+    const finalContent = normalizedContent || (imageUrl ? 'Ảnh đính kèm' : '')
+    const finalMeta = imageUrl
+        ? {
+            ...meta,
+            imageUrl,
+        }
+        : meta
 
     const adminMessage = await appendMessage({
         conversationId: conversation._id,
         senderType: 'admin',
         senderId: staffId,
         senderName: String(staffName || '').trim(),
-        content,
+        content: finalContent,
         action: 'HUMAN_CHAT',
+        meta: finalMeta,
     })
 
     const updatedConversation = await touchConversation(conversation._id, {
