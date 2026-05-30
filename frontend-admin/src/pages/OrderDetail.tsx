@@ -8,7 +8,17 @@ const orderStatusOptions: Array<{ value: Order['status']; label: string }> = [
   { value: 'shipping', label: 'Đang giao hàng' },
   { value: 'completed', label: 'Hoàn thành' },
   { value: 'cancelled', label: 'Đã hủy' },
+  { value: 'pending_prescription', label: '⏳ Chờ duyệt đơn thuốc' },
+  { value: 'approved', label: '✅ Đã duyệt đơn' },
+  { value: 'rejected', label: '❌ Từ chối đơn' },
 ]
+
+const prescriptionStatusOptions: Record<string, string> = {
+  none: 'Không có',
+  pending: 'Chờ xác nhận',
+  validated: 'Hợp lệ',
+  rejected: 'Không hợp lệ',
+}
 
 const formatDateTime = (value: string) => {
   if (!value) return '-'
@@ -48,6 +58,8 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [updatingPrescription, setUpdatingPrescription] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const statusLabel = useMemo(
     () => orderStatusOptions.find((opt) => opt.value === order?.status)?.label || order?.status || '-',
@@ -89,6 +101,59 @@ export default function OrderDetail() {
       alert(message)
     } finally {
       setUpdatingStatus(false)
+    }
+  }
+
+  const handleApprovePrescription = async () => {
+    if (!order) return
+    setUpdatingPrescription(true)
+    try {
+      const API = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '')
+      const res = await fetch(`${API}/admin/prescriptions/${order.id}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('adminAccessToken')}`,
+        },
+      })
+      const data = await res.json()
+      if (data.success) {
+        await loadOrder()
+      } else {
+        alert(data.message || 'Duyệt thất bại')
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Lỗi khi duyệt')
+    } finally {
+      setUpdatingPrescription(false)
+    }
+  }
+
+  const handleRejectPrescription = async () => {
+    if (!order) return
+    const reason = window.prompt('Nhập lý do từ chối (bắt buộc):')
+    if (!reason?.trim()) return
+    setUpdatingPrescription(true)
+    try {
+      const API = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '')
+      const res = await fetch(`${API}/admin/prescriptions/${order.id}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('adminAccessToken')}`,
+        },
+        body: JSON.stringify({ adminMessage: reason }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await loadOrder()
+      } else {
+        alert(data.message || 'Từ chối thất bại')
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Lỗi khi từ chối')
+    } finally {
+      setUpdatingPrescription(false)
     }
   }
 
@@ -156,9 +221,15 @@ export default function OrderDetail() {
 
           <section className="bg-white rounded-lg border border-gray-200 p-5">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Địa chỉ giao hàng</h2>
-            <p className="text-sm text-gray-700">{order.shippingAddress.fullAddress || '-'}</p>
-            {!!order.shippingAddress.note && (
-              <p className="text-sm text-gray-500 mt-2">Ghi chú: {order.shippingAddress.note}</p>
+            {order.shippingAddress?.fullAddress && order.shippingAddress.fullAddress !== 'Chờ duyệt đơn thuốc' ? (
+              <>
+                <p className="text-sm text-gray-700">{order.shippingAddress.fullAddress}</p>
+                {!!order.shippingAddress.note && (
+                  <p className="text-sm text-gray-500 mt-2">Ghi chú: {order.shippingAddress.note}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-amber-600 italic">⏳ Chưa có địa chỉ — khách hàng sẽ cung cấp sau khi đơn thuốc được duyệt</p>
             )}
           </section>
 
@@ -185,6 +256,58 @@ export default function OrderDetail() {
               </div>
             )}
           </section>
+
+          {order.prescriptionImage && (
+            <section className="bg-white rounded-lg border border-[#fcd34d] bg-[#fffbeb] p-5">
+              <h2 className="text-lg font-semibold text-[#d97706] mb-3 flex items-center gap-2">
+                <span role="img" aria-label="prescription">📄</span> Ảnh đơn thuốc
+              </h2>
+              <div className="flex gap-4 items-start">
+                <div 
+                  className="cursor-pointer border-2 border-dashed border-[#fcd34d] p-1 rounded-lg bg-white"
+                  onClick={() => setLightboxOpen(true)}
+                >
+                  <img src={order.prescriptionImage} alt="Prescription" className="h-40 w-auto object-contain rounded" />
+                </div>
+                <div className="flex-1 space-y-3">
+                  <p className="text-sm text-[#b45309]">
+                    <span className="font-medium">Trạng thái:</span>{' '}
+                    <span className={`font-semibold ${
+                      order.prescriptionStatus === 'validated' ? 'text-green-600' :
+                      order.prescriptionStatus === 'rejected' ? 'text-red-600' : 'text-orange-600'
+                    }`}>
+                      {prescriptionStatusOptions[order.prescriptionStatus || 'none']}
+                    </span>
+                  </p>
+                  
+                  {order.status === 'pending_prescription' && (
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handleApprovePrescription}
+                        disabled={updatingPrescription}
+                        className="px-5 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        ✅ Duyệt Đơn
+                      </button>
+                      <button
+                        onClick={handleRejectPrescription}
+                        disabled={updatingPrescription}
+                        className="px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        ❌ Từ Chối
+                      </button>
+                    </div>
+                  )}
+                  {order.status === 'approved' && (
+                    <p className="mt-3 text-sm font-semibold text-green-600">✅ Đơn thuốc đã được duyệt &amp; đã thêm vào giỏ hàng khách</p>
+                  )}
+                  {order.status === 'rejected' && (
+                    <p className="mt-3 text-sm font-semibold text-red-600">❌ Đơn thuốc bị từ chối</p>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
         </div>
 
         <aside className="space-y-6">
@@ -245,6 +368,25 @@ export default function OrderDetail() {
           </section>
         </aside>
       </div>
+
+      {lightboxOpen && order.prescriptionImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <img 
+            src={order.prescriptionImage} 
+            alt="Prescription Full" 
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+          />
+          <button 
+            className="absolute top-4 right-4 text-white text-3xl font-bold hover:text-gray-300"
+            onClick={() => setLightboxOpen(false)}
+          >
+            &times;
+          </button>
+        </div>
+      )}
     </div>
   )
 }

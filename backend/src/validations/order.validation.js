@@ -13,6 +13,8 @@ const updateOrderStatusSchema = Joi.object({
 	status: Joi.string().valid('pending', 'confirmed', 'shipping', 'completed', 'cancelled'),
 	paymentStatus: Joi.string().valid('unpaid', 'pending', 'paid', 'failed', 'refunded'),
 	adminNote: Joi.string().trim().max(1000).allow(''),
+	prescriptionStatus: Joi.string().valid('none', 'pending', 'validated', 'rejected'),
+	pharmacistId: Joi.string().allow(null, ''),
 }).min(1)
 
 const updateOrderPaymentStatusSchema = Joi.object({
@@ -26,6 +28,7 @@ const checkoutSchema = Joi.object({
 	paymentMethod: Joi.string().valid('cod', 'bank_transfer', 'e_wallet', 'momo').default('cod'),
 	note: Joi.string().trim().max(500).allow('').default(''),
 	selectedProductIds: Joi.array().items(Joi.string().trim().required()).default([]),
+	prescriptionImage: Joi.string().allow(null, '').default(''),
 })
 
 module.exports = { orderQuerySchema, updateOrderStatusSchema, updateOrderPaymentStatusSchema, checkoutSchema }

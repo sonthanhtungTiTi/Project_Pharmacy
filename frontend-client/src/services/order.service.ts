@@ -7,6 +7,7 @@ export interface CheckoutPayload {
 	note?: string
 	paymentMethod?: PaymentMethod
 	selectedProductIds?: string[]
+	prescriptionImage?: string
 }
 
 export interface OrderItem {
@@ -17,6 +18,7 @@ export interface OrderItem {
 	unitPrice: number
 	quantity: number
 	lineTotal: number
+	requiresPrescription?: boolean
 }
 
 export interface OrderData {
@@ -39,6 +41,9 @@ export interface OrderData {
 	note: string
 	adminNote: string
 	cancelReason: string
+	prescriptionImage: string
+	prescriptionStatus: 'none' | 'pending' | 'validated' | 'rejected'
+	pharmacistId: string | null
 	placedAt: string
 	shippingAddress: {
 		addressId: string

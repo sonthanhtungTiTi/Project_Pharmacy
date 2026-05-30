@@ -117,6 +117,7 @@ function EventPage({ slug, onOpenProductDetail }: EventPageProps) {
 								price={String(item.price)}
 								originalPrice={item.originalPrice ? formatVnd(item.originalPrice) : undefined}
 								sale={item.discountLabel}
+								requiresPrescription={item.requiresPrescription}
 								onViewDetail={onOpenProductDetail}
 							/>
 						))}

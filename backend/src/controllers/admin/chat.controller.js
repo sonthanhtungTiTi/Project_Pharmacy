@@ -45,6 +45,27 @@ const joinConversation = async (req, res) => {
 		const { conversationId } = req.params
 
 		const data = await chatService.assignConversationToStaff(conversationId, { staffId, staffName })
+
+		const io = req.app.get('io')
+		if (io) {
+			const roomName = `chat:conversation:${data.conversation.id}`
+			const clientId = String(data.conversation?.client?.id || data.conversation?.clientId || '')
+			if (data.systemMessage) {
+				io.to(roomName).to(clientId).emit('chat:message:new', {
+					conversationId: data.conversation.id,
+					message: data.systemMessage,
+				})
+			}
+			io.to(roomName).to(clientId).emit('chat:human-joined', {
+				conversationId: data.conversation.id,
+				staffName: staffName,
+				message: `Nhan vien ${staffName} da tham gia ho tro`,
+			})
+			io.to(roomName).to(clientId).emit('chat:conversation:updated', {
+				conversation: data.conversation,
+			})
+		}
+
 		return res.status(200).json({
 			success: true,
 			message: 'Conversation assigned successfully',
@@ -65,6 +86,22 @@ const closeConversation = async (req, res) => {
 		const { conversationId } = req.params
 
 		const data = await chatService.closeConversationByStaff(conversationId, staffId)
+
+		const io = req.app.get('io')
+		if (io) {
+			const roomName = `chat:conversation:${data.conversation.id}`
+			const clientId = String(data.conversation?.client?.id || data.conversation?.clientId || '')
+			if (data.systemMessage) {
+				io.to(roomName).to(clientId).emit('chat:message:new', {
+					conversationId: data.conversation.id,
+					message: data.systemMessage,
+				})
+			}
+			io.to(roomName).to(clientId).emit('chat:conversation:updated', {
+				conversation: data.conversation,
+			})
+		}
+
 		return res.status(200).json({
 			success: true,
 			message: 'Conversation closed successfully',

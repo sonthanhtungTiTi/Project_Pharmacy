@@ -13,6 +13,7 @@ interface ProductCardProps {
 	sale?: string
 	soldCount?: number
 	totalCount?: number
+	requiresPrescription?: boolean
 	onViewDetail?: (productId: string) => void
 }
 
@@ -26,6 +27,7 @@ function ProductCard({
 	sale,
 	soldCount = 17,
 	totalCount = 20,
+	requiresPrescription = false,
 	onViewDetail,
 }: ProductCardProps) {
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -43,6 +45,11 @@ function ProductCard({
 	const handleOpenAddModal = () => {
 		if (!productId) {
 			setAddResultMessage('Sản phẩm này chưa sẵn sàng để thêm vào giỏ')
+			return
+		}
+
+		if (requiresPrescription) {
+			setAddResultMessage('Đây là thuốc kê đơn. Vui lòng vào xem chi tiết để được hỗ trợ')
 			return
 		}
 
@@ -120,11 +127,19 @@ function ProductCard({
 				<button
 					type="button"
 					onClick={handleOpenAddModal}
-					className="h-10 w-full rounded-xl bg-[#35b548] text-sm font-semibold text-white transition hover:brightness-95"
+					className={`h-10 w-full rounded-xl text-sm font-semibold transition hover:brightness-95 ${
+						requiresPrescription
+							? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+							: 'bg-[#35b548] text-white'
+					}`}
 				>
-					Thêm vào giỏ
+					{requiresPrescription ? 'Thuốc kê đơn' : 'Thêm vào giỏ'}
 				</button>
-				{addResultMessage && <p className="mt-2 text-xs text-slate-600">{addResultMessage}</p>}
+				{addResultMessage && (
+					<p className={`mt-2 text-xs ${requiresPrescription ? 'text-red-500 font-medium' : 'text-slate-600'}`}>
+						{addResultMessage}
+					</p>
+				)}
 			</div>
 
 			<AddToCartModal

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import toast from 'react-hot-toast'
 import PharmacyLayout, { type CategoryItem } from '../components/layout/layout'
 import AddToCartModal from '../components/ui/add-to-cart-modal'
 import ProductCard from '../components/ui/product-card'
@@ -26,11 +27,13 @@ const categories: CategoryItem[] = [
 	{ _id: '69b199bce7c1196de13c91a7', categoryName: 'Hỗ hợp' },
 ]
 
-const splitImages = (images: string) =>
-	String(images || '')
+const splitImages = (images: string | string[]) => {
+	if (Array.isArray(images)) return images.map((item) => item.trim()).filter(Boolean)
+	return String(images || '')
 		.split(';')
 		.map((item) => item.trim())
 		.filter(Boolean)
+}
 
 const detailRows = (product: ProductDetailData) => [
 	{ label: 'Công dụng', value: product.usageSummary },
@@ -64,6 +67,62 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 	const [relatedProducts, setRelatedProducts] = useState<ProductItem[]>([])
 	const [isLoadingRelated, setIsLoadingRelated] = useState(false)
 	const [relatedError, setRelatedError] = useState('')
+	const [prescriptionUrl, setPrescriptionUrl] = useState('')
+	const [isSubmittingRequest, setIsSubmittingRequest] = useState(false)
+	const [consultationSent, setConsultationSent] = useState(false)
+
+	const handlePrescriptionUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0]
+		if (file) {
+			const reader = new FileReader()
+			reader.onloadend = () => {
+				setPrescriptionUrl(reader.result as string)
+			}
+			reader.readAsDataURL(file)
+		}
+	}
+
+	const handleSubmitConsultation = async () => {
+		if (!product?._id || !prescriptionUrl) return
+
+		try {
+			setIsSubmittingRequest(true)
+			const token = localStorage.getItem('clientAccessToken')
+			if (!token) {
+				window.dispatchEvent(new CustomEvent('requestAuth'))
+				return
+			}
+
+			const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '')
+			const res = await fetch(`${API_BASE_URL}/client/prescriptions`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({
+					productId: product._id,
+					prescriptionImage: prescriptionUrl
+				})
+			})
+
+			const data = await res.json()
+			if (res.ok && data.success) {
+				setConsultationSent(true)
+				toast.success('Yêu cầu đã gửi! Nhân viên sẽ tư vấn bạn qua khung chat.')
+				setAddToCartMessage('')
+				window.dispatchEvent(new CustomEvent('openChatbot'))
+			} else {
+				toast.error(data.message || 'Lỗi khi gửi yêu cầu')
+				setAddToCartMessage('')
+			}
+		} catch (err) {
+			toast.error('Lỗi khi gửi yêu cầu')
+			setAddToCartMessage('')
+		} finally {
+			setIsSubmittingRequest(false)
+		}
+	}
 
 	useEffect(() => {
 		const loadDetail = async () => {
@@ -117,9 +176,13 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 		void loadRelatedProducts()
 	}, [product?.categoryId, productId])
 
-	const extractFirstImage = (images: string) => {
+	const extractFirstImage = (images: string | string[]) => {
 		if (!images) {
 			return ''
+		}
+
+		if (Array.isArray(images)) {
+			return images[0]?.trim() || ''
 		}
 
 		return images
@@ -259,33 +322,97 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 					<div className="space-y-4">
 						<section className="rounded-2xl bg-white p-4 shadow-sm">
 							<h1 className="text-3xl font-black leading-tight text-slate-800">{product.productName}</h1>
-							<div className="mt-2 flex flex-wrap gap-4 text-sm">
+							<div className="mt-2 flex flex-wrap gap-4 text-sm items-center">
 								<span className="font-semibold text-[#35b548]">Còn hàng</span>
 								<span className="text-slate-600">Mã: {product.medicineCode}</span>
+								{product.requiresPrescription && (
+									<span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-600 border border-red-200 flex items-center gap-1">
+										<span role="img" aria-label="warning">⚠️</span> Cần đơn thuốc
+									</span>
+								)}
 							</div>
 
 							<p className="mt-4 text-[30px] font-extrabold leading-none text-[#f14153]">{product.price}</p>
 
-							<div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-								<button
-									type="button"
-									onClick={() => {
-										setAddToCartMessage('')
-										setIsAddModalOpen(true)
-									}}
-									className="h-11 rounded-xl bg-[#35b548] text-base font-semibold text-white transition hover:brightness-95"
-								>
-									Chọn mua
-								</button>
-								<button
-									type="button"
-									className="h-11 rounded-xl bg-[#ebf6ed] text-base font-semibold text-[#1f9542] transition hover:bg-[#dff3e3]"
-								>
-									Chat Zalo
-								</button>
-							</div>
-							{addToCartMessage && (
-								<p className="mt-3 text-sm text-slate-600">{addToCartMessage}</p>
+							{product.requiresPrescription ? (
+								consultationSent ? (
+									/* ===== BANNER THÀNH CÔNG ===== */
+									<div className="mt-5 rounded-xl border border-[#35b548] bg-[#f0faf2] p-5 flex flex-col items-center gap-3 text-center">
+										<div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#35b548] text-white text-2xl shadow-md">
+											✓
+										</div>
+										<p className="text-base font-bold text-[#1f7a35]">Yêu cầu đã được gửi!</p>
+										<p className="text-sm text-slate-600 leading-relaxed">
+											Nhân viên dược sĩ đang xem xét đơn thuốc của bạn.
+											<br />
+											Vui lòng <span className="font-semibold text-[#35b548]">mở khung chat</span> bên góc phải màn hình để nhân viên tư vấn trực tiếp về loại thuốc kê đơn này.
+										</p>
+										<button
+											type="button"
+											onClick={() => window.dispatchEvent(new CustomEvent('openChatbot'))}
+											className="mt-1 flex items-center gap-2 rounded-xl bg-[#35b548] px-6 py-2.5 text-sm font-semibold text-white shadow hover:brightness-95 transition"
+										>
+											<span>💬</span> Mở khung chat tư vấn
+										</button>
+									</div>
+								) : (
+									/* ===== FORM UPLOAD ĐƠN THUỐC ===== */
+									<div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 rounded-xl border border-red-200 bg-red-50 p-4">
+										<div className="flex flex-col gap-2">
+											<p className="text-sm font-semibold text-slate-700">Tải lên đơn thuốc của bạn</p>
+											<label className="flex h-32 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white hover:bg-slate-50">
+												{prescriptionUrl ? (
+													<img src={prescriptionUrl} alt="Đơn thuốc" className="h-full w-full object-contain p-2" />
+												) : (
+													<div className="text-center text-slate-500">
+														<span className="text-2xl">+</span>
+														<p className="text-xs">Bấm để tải ảnh</p>
+													</div>
+												)}
+												<input type="file" className="hidden" accept="image/*" onChange={handlePrescriptionUpload} />
+											</label>
+										</div>
+										<div className="flex flex-col justify-center gap-3">
+											<p className="text-sm font-bold text-red-600">
+												⚠️ Thuốc chống chỉ định khi chưa có yêu cầu của bác sĩ chuyên môn
+											</p>
+											<button
+												type="button"
+												onClick={handleSubmitConsultation}
+												disabled={!prescriptionUrl || isSubmittingRequest}
+												className={`h-11 rounded-xl text-base font-semibold text-white transition ${
+													!prescriptionUrl || isSubmittingRequest
+														? 'bg-slate-300 cursor-not-allowed'
+														: 'bg-[#35b548] hover:brightness-95'
+												}`}
+											>
+												{isSubmittingRequest ? 'Đang gửi...' : 'Tư vấn mua hàng'}
+											</button>
+										</div>
+									</div>
+								)
+							) : (
+								<div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+									<button
+										type="button"
+										onClick={() => {
+											setAddToCartMessage('')
+											setIsAddModalOpen(true)
+										}}
+										className="h-11 rounded-xl bg-[#35b548] text-base font-semibold text-white transition hover:brightness-95"
+									>
+										Chọn mua
+									</button>
+									<button
+										type="button"
+										className="h-11 rounded-xl bg-[#ebf6ed] text-base font-semibold text-[#1f9542] transition hover:bg-[#dff3e3]"
+									>
+										Chat Zalo
+									</button>
+									{addToCartMessage && (
+										<p className="mt-3 text-sm text-slate-600 col-span-2">{addToCartMessage}</p>
+									)}
+								</div>
 							)}
 							<AddToCartModal
 								isOpen={isAddModalOpen}
@@ -362,6 +489,7 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 													sale={meta.discountLabel}
 													soldCount={meta.soldCount}
 													totalCount={meta.totalCount}
+													requiresPrescription={item.requiresPrescription}
 													onViewDetail={openProductDetail}
 												/>
 											)

@@ -12,7 +12,7 @@ interface MedicineFormProps {
   onCancel: () => void
 }
 
-type FormFieldValue = string | number | Blob | File | string[]
+type FormFieldValue = string | number | Blob | File | string[] | boolean
 type FormDataState = Record<string, FormFieldValue>
 
 const buildInitialFormData = (medicine?: Product) => ({
@@ -35,6 +35,7 @@ const buildInitialFormData = (medicine?: Product) => ({
   expiry: medicine?.expiry || '',
   description: medicine?.description || '',
   images: Array.isArray(medicine?.images) ? medicine.images.join('; ') : (medicine?.images || ''),
+  requiresPrescription: medicine?.requiresPrescription || false,
 })
 
 const normalizeSavedProduct = (payload: any): Product => {
@@ -123,10 +124,12 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
   }, [medicine])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }))
   }
 
@@ -310,7 +313,7 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
                 value={formData.price}
                 onChange={handleChange}
                 min="0"
-                step="1000"
+                step="any"
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Ví dụ: 52500"
               />
@@ -361,6 +364,20 @@ export default function MedicineForm({ medicine, categoryId, categoryName, onSav
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="https://example.com/image1.jpg; https://example.com/image2.jpg"
               />
+            </div>
+
+            <div className="md:col-span-2 flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                id="requiresPrescription"
+                name="requiresPrescription"
+                checked={Boolean(formData.requiresPrescription)}
+                onChange={handleChange}
+                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="requiresPrescription" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                Sản phẩm bắt buộc phải có đơn thuốc của bác sĩ (Cảnh báo khi mua hàng)
+              </label>
             </div>
           </div>
 

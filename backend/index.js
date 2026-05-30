@@ -7,11 +7,14 @@ const compression = require('compression')
 const morgan = require('morgan')
 const http = require('http')
 const { Server } = require('socket.io')
-const setupCallHandlers = require('./src/sockets/callHandler')
+const callHandlerModule = require('./src/sockets/callHandler')
+const setupCallHandlers = callHandlerModule
+const { onlineUsers } = callHandlerModule
 
 const clientRoutes = require('./src/routes/client')
 const adminRoutes = require('./src/routes/admin')
 const { errorHandler } = require('./src/middleware/errorHandler')
+const { startChatCleanupJob } = require('./src/jobs/chatCleanup.job')
 
 dotenv.config()
 
@@ -36,8 +39,9 @@ const io = new Server(server, {
 // Setup Socket.IO call signaling handlers for PeerJS
 setupCallHandlers(io)
 
-// Make io available to routes if needed
+// Make io and onlineUsers available to routes
 app.set('io', io)
+app.set('onlineUsers', onlineUsers)
 
 // Security & Performance middleware
 app.use(helmet())
@@ -91,6 +95,9 @@ const startServer = async () => {
             console.log(`Socket.IO server is running`)
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
         })
+
+        // Khởi động background jobs
+        startChatCleanupJob()
     } catch (error) {
         console.error('Failed to start server:', error.message)
         process.exit(1)

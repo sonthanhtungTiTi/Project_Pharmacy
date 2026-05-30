@@ -100,14 +100,15 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 
 			socket.join(conversationRoom(data.conversation.id))
 
+			const clientId = String(data.conversation?.client?.id || data.conversation?.clientId || '')
 			if (data.systemMessage) {
-				io.to(conversationRoom(data.conversation.id)).emit('chat:message:new', {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.systemMessage,
 				})
 			}
 
-			io.to(conversationRoom(data.conversation.id)).emit('chat:conversation:updated', {
+			io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:conversation:updated', {
 				conversation: data.conversation,
 			})
 
@@ -143,20 +144,21 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 
 			socket.join(conversationRoom(data.conversation.id))
 
+			const clientId = String(data.conversation?.client?.id || data.conversation?.clientId || '')
 			if (data.systemMessage) {
-				io.to(conversationRoom(data.conversation.id)).emit('chat:message:new', {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.systemMessage,
 				})
 			}
 
-			io.to(conversationRoom(data.conversation.id)).emit('chat:human-joined', {
+			io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:human-joined', {
 				conversationId: data.conversation.id,
 				staffName: userName,
 				message: `Nhan vien ${userName} da tham gia ho tro`,
 			})
 
-			io.to(conversationRoom(data.conversation.id)).emit('chat:conversation:updated', {
+			io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:conversation:updated', {
 				conversation: data.conversation,
 			})
 
@@ -183,14 +185,15 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 
 			socket.join(conversationRoom(data.conversation.id))
 
+			const clientId = String(data.conversation?.client?.id || data.conversation?.clientId || '')
 			if (data.systemMessage) {
-				io.to(conversationRoom(data.conversation.id)).emit('chat:message:new', {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.systemMessage,
 				})
 			}
 
-			io.to(conversationRoom(data.conversation.id)).emit('chat:conversation:updated', {
+			io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:conversation:updated', {
 				conversation: data.conversation,
 			})
 
@@ -229,12 +232,13 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 					content,
 				})
 
-				io.to(conversationRoom(data.conversation.id)).emit('chat:message:new', {
+				const clientId = String(data.conversation?.client?.id || '')
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.message,
 				})
 
-				io.to(conversationRoom(data.conversation.id)).emit('chat:conversation:updated', {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:conversation:updated', {
 					conversation: data.conversation,
 				})
 
@@ -255,28 +259,36 @@ const registerChatHandlers = ({ io, socket, onlineUsers }) => {
 
 			socket.join(conversationRoom(data.conversation.id))
 
+			const clientId = String(data.conversation?.client?.id || data.conversation?.clientId || '')
 			if (data.userMessage) {
-				io.to(conversationRoom(data.conversation.id)).emit('chat:message:new', {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.userMessage,
 				})
 			}
 
+			if (data.aiMessage) {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
+					conversationId: data.conversation.id,
+					message: data.aiMessage,
+				})
+			}
+
 			if (data.systemMessage) {
-				io.to(conversationRoom(data.conversation.id)).emit('chat:message:new', {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.systemMessage,
 				})
 			}
 
 			if (data.botMessage) {
-				io.to(conversationRoom(data.conversation.id)).emit('chat:message:new', {
+				io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:message:new', {
 					conversationId: data.conversation.id,
 					message: data.botMessage,
 				})
 			}
 
-			io.to(conversationRoom(data.conversation.id)).emit('chat:conversation:updated', {
+			io.to(conversationRoom(data.conversation.id)).to(clientId).emit('chat:conversation:updated', {
 				conversation: data.conversation,
 			})
 

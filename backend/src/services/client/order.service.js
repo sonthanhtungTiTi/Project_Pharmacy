@@ -48,6 +48,9 @@ const serializeOrder = (orderDoc) => {
 		note: orderDoc.note || '',
 		adminNote: orderDoc.adminNote || '',
 		cancelReason: orderDoc.cancelReason || '',
+		prescriptionImage: orderDoc.prescriptionImage || '',
+		prescriptionStatus: orderDoc.prescriptionStatus || 'none',
+		pharmacistId: orderDoc.pharmacistId ? String(orderDoc.pharmacistId) : null,
 		placedAt: orderDoc.placedAt,
 		shippingAddress: {
 			addressId: String(orderDoc.shippingAddress.addressId),
@@ -66,6 +69,7 @@ const serializeOrder = (orderDoc) => {
 			medicineCode: item.medicineCode || '',
 			productName: item.productName,
 			productImage: item.productImage || '',
+			requiresPrescription: item.requiresPrescription || false,
 			unitPrice: item.unitPrice,
 			quantity: item.quantity,
 			lineTotal: item.lineTotal,
@@ -103,7 +107,7 @@ const normalizeSelectedProductIds = (selectedProductIds) => {
 	return Array.from(new Set(ids))
 }
 
-const checkoutFromCart = async (userId, { addressId, note, paymentMethod = 'cod', selectedProductIds = [] } = {}) => {
+const checkoutFromCart = async (userId, { addressId, note, paymentMethod = 'cod', selectedProductIds = [], prescriptionImage = '' } = {}) => {
 	ensureValidObjectId(userId, 'userId')
 	ensureValidObjectId(addressId, 'addressId')
 
@@ -136,6 +140,11 @@ const checkoutFromCart = async (userId, { addressId, note, paymentMethod = 'cod'
 		throw new OrderServiceError('No selected items found in cart', 400)
 	}
 
+	const hasRxItems = checkoutItemsSource.some(item => item.requiresPrescription)
+	if (hasRxItems && !prescriptionImage) {
+		throw new OrderServiceError('Prescription image is required for this order', 400)
+	}
+
 	const items = checkoutItemsSource.map((item) => {
 		const quantity = Math.max(1, Number(item.quantity) || 1)
 		const unitPrice = Math.max(0, Number(item.unitPrice) || 0)
@@ -150,6 +159,7 @@ const checkoutFromCart = async (userId, { addressId, note, paymentMethod = 'cod'
 			medicineCode: item.medicineCode || '',
 			productName: item.productName,
 			productImage: item.productImage || '',
+			requiresPrescription: item.requiresPrescription || false,
 			unitPrice,
 			quantity,
 			lineTotal,
@@ -187,6 +197,8 @@ const checkoutFromCart = async (userId, { addressId, note, paymentMethod = 'cod'
 				paymentMethod,
 				paymentStatus: getInitialPaymentStatus(paymentMethod),
 				note: normalizeText(note),
+				prescriptionImage: hasRxItems ? prescriptionImage : '',
+				prescriptionStatus: hasRxItems ? 'pending' : 'none',
 			})
 			break
 		} catch (error) {

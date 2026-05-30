@@ -28,12 +28,13 @@ export interface OrderItem {
   unitPrice: number
   quantity: number
   lineTotal: number
+  requiresPrescription?: boolean
 }
 
 export interface Order {
   id: string
   orderCode: string
-  status: 'pending' | 'confirmed' | 'shipping' | 'completed' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'shipping' | 'completed' | 'cancelled' | 'pending_prescription' | 'approved' | 'rejected'
   paymentMethod: 'cod' | 'bank_transfer' | 'e_wallet' | 'momo'
   paymentStatus: 'unpaid' | 'pending' | 'paid' | 'failed' | 'refunded'
   totalQuantity: number
@@ -41,6 +42,9 @@ export interface Order {
   note: string
   adminNote: string
   cancelReason: string
+  prescriptionImage?: string
+  prescriptionStatus?: 'none' | 'pending' | 'validated' | 'rejected'
+  pharmacistId?: string | null
   placedAt: string
   createdAt: string
   updatedAt: string
