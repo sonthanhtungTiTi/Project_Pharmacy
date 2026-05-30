@@ -264,7 +264,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
             return stream
         } catch {
             if (!enableVideo) {
-                throw new Error('Khong the truy cap microphone')
+                throw new Error('Không thể truy cap microphone')
             }
 
             const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
@@ -367,7 +367,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
             }
 
             if (!consultationId) {
-                throw new Error('Can co lich tu van da xac nhan de bat dau cuoc goi')
+                throw new Error('Can co lich tu van da xác nhận de bat dau cuoc goi')
             }
 
             if (!peerRef.current || !peerReadyRef.current) {

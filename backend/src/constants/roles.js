@@ -11,6 +11,7 @@ const ROLES = {
 	MANAGER: 'manager',
 	ADMIN: 'admin',
 	BANNED: 'banned',
+	DOCTOR: 'doctor',
 }
 
 const ROLE_LIST = Object.values(ROLES)
@@ -88,6 +89,12 @@ const ROLE_PERMISSIONS = {
 		'discount:approve',
 		'profile:manage',
 	],
+	[ROLES.DOCTOR]: [
+		'product:read',
+		'consultation:provide',
+		'chat:doctor',
+		'profile:manage',
+	],
 	[ROLES.ADMIN]: ['*'], // Quyền tuyệt đối
 	[ROLES.BANNED]: [],    // Không có quyền gì
 }
@@ -97,7 +104,7 @@ const ROLE_PERMISSIONS = {
  */
 const ROLE_GROUPS = {
 	// Ai cũng có thể truy cập (đã đăng nhập)
-	ALL_AUTHENTICATED: [ROLES.CUSTOMER, ROLES.PHARMACIST, ROLES.WAREHOUSE_STAFF, ROLES.SALES_STAFF, ROLES.MANAGER, ROLES.ADMIN],
+	ALL_AUTHENTICATED: [ROLES.CUSTOMER, ROLES.PHARMACIST, ROLES.WAREHOUSE_STAFF, ROLES.SALES_STAFF, ROLES.MANAGER, ROLES.ADMIN, ROLES.DOCTOR],
 
 	// Staff trở lên (không bao gồm customer/pharmacist)
 	STAFF_AND_ABOVE: [ROLES.WAREHOUSE_STAFF, ROLES.SALES_STAFF, ROLES.MANAGER, ROLES.ADMIN],

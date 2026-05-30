@@ -68,7 +68,15 @@ const createRequest = async (req, res) => {
         if (io) {
             // Lấy onlineUsers từ app context nếu có
             const onlineUsers = req.app.get('onlineUsers')
-            const ADMIN_ROLES = new Set(['admin', 'pharmacist', 'staff', 'support'])
+            const ADMIN_ROLES = new Set([
+                'admin',
+                'pharmacist',
+                'staff',
+                'support',
+                'manager',
+                'sales_staff',
+                'warehouse_staff',
+            ])
 
             const orderPayload = {
                 orderId: order._id,
@@ -81,13 +89,18 @@ const createRequest = async (req, res) => {
             }
 
             if (onlineUsers && typeof onlineUsers.values === 'function') {
+                let delivered = false
                 for (const u of onlineUsers.values()) {
                     if (ADMIN_ROLES.has(String(u.role || ''))) {
                         io.to(String(u.userId)).emit('new_prescription_order', orderPayload)
+                        delivered = true
                     }
                 }
+
+                if (!delivered) {
+                    io.emit('new_prescription_order', orderPayload)
+                }
             } else {
-                // Fallback: emit vào room 'admin'
                 io.emit('new_prescription_order', orderPayload)
             }
         }

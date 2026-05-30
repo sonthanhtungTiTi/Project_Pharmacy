@@ -147,8 +147,38 @@ const authorizeStaff = (req, res, next) => {
 	next()
 }
 
+const optionalAuthenticateClientJwt = async (req, res, next) => {
+	try {
+		const token = getBearerToken(req.headers.authorization)
+		if (!token) return next()
+
+		const payload = jwt.verify(token, getJwtSecret())
+		if (!payload?.userId) return next()
+
+		const user = await User.findById(payload.userId)
+			.select('_id email role isActive provider fullName')
+			.lean()
+
+		if (user && user.isActive !== false) {
+			const authContext = {
+				userId: String(user._id),
+				email: user.email,
+				role: user.role,
+				provider: user.provider,
+				fullName: user.fullName,
+			}
+			req.user = authContext
+			req.auth = authContext
+		}
+	} catch (error) {
+		// ignore
+	}
+	next()
+}
+
 module.exports = {
 	authenticateClientJwt,
+	optionalAuthenticateClientJwt,
 	authorizeSelfOrAdmin,
 	authorizeAdmin,
 	authorizeStaff,

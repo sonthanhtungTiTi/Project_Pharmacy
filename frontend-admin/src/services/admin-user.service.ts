@@ -1,7 +1,7 @@
 import { apiGet, apiPost, apiPatch } from '../utils/api.utils'
 
 // ============== Types ==============
-export type UserRole = 'customer' | 'pharmacist' | 'warehouse_staff' | 'sales_staff' | 'manager' | 'admin' | 'banned'
+export type UserRole = 'customer' | 'pharmacist' | 'warehouse_staff' | 'sales_staff' | 'manager' | 'admin' | 'banned' | 'doctor'
 export type Department = 'warehouse' | 'sales' | 'pharmacy' | 'management' | null
 
 export interface AdminUserItem {

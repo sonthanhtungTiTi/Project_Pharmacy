@@ -34,4 +34,14 @@ router.use('/consultations', consultationRoutes)
 router.use('/chat', chatRoutes)
 router.use('/prescriptions', prescriptionRoutes)
 
+const eventRoutes = require('./event.route')
+const authenticityRoutes = require('./authenticity.route')
+const appointmentRoutes = require('./appointment.route')
+const partnerRoutes = require('./partner.route')
+
+router.use('/events', eventRoutes)
+router.use('/authenticity-codes', authenticityRoutes)
+router.use('/appointments', appointmentRoutes)
+router.use('/partners', partnerRoutes)
+
 module.exports = router

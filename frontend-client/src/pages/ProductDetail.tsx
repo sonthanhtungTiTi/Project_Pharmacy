@@ -27,11 +27,72 @@ const categories: CategoryItem[] = [
 	{ _id: '69b199bce7c1196de13c91a7', categoryName: 'Hỗ hợp' },
 ]
 
+const getBackendUrl = () => {
+	const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+	return apiUrl.replace(/\/api\/?$/, '')
+}
+
+const cleanProxyUrl = (url: string) => {
+	if (!url) return ''
+
+	const doubleHttpsIndex = url.lastIndexOf('https://')
+	if (doubleHttpsIndex > 0) {
+		return url.substring(doubleHttpsIndex)
+	}
+
+	const doubleHttpIndex = url.lastIndexOf('http://')
+	if (doubleHttpIndex > 0) {
+		return url.substring(doubleHttpIndex)
+	}
+
+	return url
+}
+
+const normalizeImageUrl = (url: string) => {
+	const cleaned = cleanProxyUrl(url)
+	if (cleaned && cleaned.startsWith('/') && !cleaned.startsWith('//')) {
+		return `${getBackendUrl()}${cleaned}`
+	}
+
+	return cleaned
+}
+
 const splitImages = (images: string | string[]) => {
-	if (Array.isArray(images)) return images.map((item) => item.trim()).filter(Boolean)
-	return String(images || '')
-		.split(';')
-		.map((item) => item.trim())
+	const rawItems: string[] = []
+
+	if (Array.isArray(images)) {
+		rawItems.push(...images)
+	} else {
+		const rawText = String(images || '').trim()
+		if (!rawText) return []
+		if (rawText.startsWith('[')) {
+			try {
+				const parsed = JSON.parse(rawText)
+				if (Array.isArray(parsed)) {
+					rawItems.push(...parsed.map((item) => String(item)))
+				} else {
+					rawItems.push(rawText)
+				}
+			} catch {
+				rawItems.push(rawText)
+			}
+		} else {
+			rawItems.push(rawText)
+		}
+	}
+
+	return rawItems
+		.flatMap((item) => {
+			const trimmed = String(item || '').trim()
+			if (!trimmed) return []
+			if (trimmed.includes(';')) return trimmed.split(';')
+			if (trimmed.includes('|')) return trimmed.split('|')
+			if (trimmed.includes(',') && !trimmed.includes('f_webp,') && !trimmed.includes('quality_')) {
+				return trimmed.split(',')
+			}
+			return [trimmed]
+		})
+		.map((item) => normalizeImageUrl(item.trim()))
 		.filter(Boolean)
 }
 
@@ -70,6 +131,7 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 	const [prescriptionUrl, setPrescriptionUrl] = useState('')
 	const [isSubmittingRequest, setIsSubmittingRequest] = useState(false)
 	const [consultationSent, setConsultationSent] = useState(false)
+	const [showPrescriptionWarning, setShowPrescriptionWarning] = useState(false)
 
 	const handlePrescriptionUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0]
@@ -131,6 +193,9 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 				setError('')
 				const data = await getProductDetail(productId)
 				setProduct(data)
+				if (data?.requiresPrescription) {
+					setShowPrescriptionWarning(true)
+				}
 			} catch (apiError) {
 				setProduct(null)
 				setError(apiError instanceof Error ? apiError.message : 'Không thể tải chi tiết sản phẩm')
@@ -176,20 +241,7 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 		void loadRelatedProducts()
 	}, [product?.categoryId, productId])
 
-	const extractFirstImage = (images: string | string[]) => {
-		if (!images) {
-			return ''
-		}
-
-		if (Array.isArray(images)) {
-			return images[0]?.trim() || ''
-		}
-
-		return images
-			.split(';')
-			.map((item) => item.trim())
-			.find((item) => item.length > 0) || ''
-	}
+	const extractFirstImage = (images: string | string[]) => splitImages(images)[0] || ''
 
 	const parsePriceNumber = (price: string) => {
 		const digits = String(price).replace(/[^0-9]/g, '')
@@ -197,6 +249,18 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 	}
 
 	const formatVnd = (value: number) => `${new Intl.NumberFormat('vi-VN').format(Math.max(0, Math.round(value)))}đ`
+
+	const formatPriceLabel = (value: string | number | null | undefined) => {
+		const rawText = String(value ?? '').trim()
+		const digits = rawText.replace(/[^0-9]/g, '')
+		if (!digits) {
+			return rawText
+		}
+
+		const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits))
+		const suffix = rawText.replace(/[0-9\s.,]/g, '')
+		return suffix ? `${formatted}${suffix}` : formatted
+	}
 
 	const buildCardMeta = (item: ProductItem) => {
 		const currentPrice = parsePriceNumber(item.price)
@@ -247,8 +311,34 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 		window.dispatchEvent(new CustomEvent('requestAuth'))
 	}
 
+	const displayPrice = formatPriceLabel(product?.price)
+
 	return (
 		<PharmacyLayout categories={categories} hideSidebar>
+			{showPrescriptionWarning && (
+				<div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/45 p-4">
+					<div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+						<div className="bg-red-50 p-6 text-center">
+							<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-3xl shadow-sm">
+								⚠️
+							</div>
+							<h3 className="mb-2 text-xl font-bold text-red-600">Thuốc Cần Kê Đơn</h3>
+							<p className="text-sm leading-relaxed text-slate-600">
+								Sản phẩm này là thuốc kê đơn. Bạn cần <span className="font-semibold text-slate-800">tải lên hình ảnh đơn thuốc</span> để được dược sĩ tư vấn trước khi mua hàng.
+							</p>
+						</div>
+						<div className="bg-white p-4">
+							<button
+								type="button"
+								onClick={() => setShowPrescriptionWarning(false)}
+								className="w-full rounded-xl bg-[#35b548] py-3 text-base font-semibold text-white shadow-sm transition hover:brightness-95"
+							>
+								Tôi đã hiểu
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 			<div className="mb-1">
 				<button
 					type="button"
@@ -291,11 +381,10 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 											type="button"
 											key={`${item}-${index}`}
 											onClick={() => setSelectedImageIndex(index)}
-											className={`overflow-hidden rounded-xl border p-1 ${
-												selectedImageIndex === index
-													? 'border-[#35b548]'
-													: 'border-slate-200'
-											}`}
+											className={`overflow-hidden rounded-xl border p-1 ${selectedImageIndex === index
+												? 'border-[#35b548]'
+												: 'border-slate-200'
+												}`}
 										>
 											<img src={item} alt={`${product.productName}-${index + 1}`} className="h-14 w-full object-contain" />
 										</button>
@@ -332,7 +421,7 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 								)}
 							</div>
 
-							<p className="mt-4 text-[30px] font-extrabold leading-none text-[#f14153]">{product.price}</p>
+							<p className="mt-4 text-[30px] font-extrabold leading-none text-[#f14153]">{displayPrice}</p>
 
 							{product.requiresPrescription ? (
 								consultationSent ? (
@@ -380,11 +469,10 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 												type="button"
 												onClick={handleSubmitConsultation}
 												disabled={!prescriptionUrl || isSubmittingRequest}
-												className={`h-11 rounded-xl text-base font-semibold text-white transition ${
-													!prescriptionUrl || isSubmittingRequest
-														? 'bg-slate-300 cursor-not-allowed'
-														: 'bg-[#35b548] hover:brightness-95'
-												}`}
+												className={`h-11 rounded-xl text-base font-semibold text-white transition ${!prescriptionUrl || isSubmittingRequest
+													? 'bg-slate-300 cursor-not-allowed'
+													: 'bg-[#35b548] hover:brightness-95'
+													}`}
 											>
 												{isSubmittingRequest ? 'Đang gửi...' : 'Tư vấn mua hàng'}
 											</button>
@@ -417,9 +505,9 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 							<AddToCartModal
 								isOpen={isAddModalOpen}
 								productName={product.productName}
-								priceLabel={product.price}
+								priceLabel={displayPrice}
 								onClose={() => setIsAddModalOpen(false)}
-								onConfirm={handleAddToCart}							onLoginRequired={handleLoginRequired}							/>
+								onConfirm={handleAddToCart} onLoginRequired={handleLoginRequired} />
 							<p className="mt-3 text-sm text-slate-500">Tư vấn từ 8:00 - 21:30</p>
 						</section>
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { updateProfile, type AuthUser } from '../services/auth.service'
+import FaceCamera from '../components/ui/FaceCamera'
+import { enrollFaceId, disableFaceId } from '../services/faceAuth.service'
 import { getMyOrderDetail, getMyOrders, type OrderData } from '../services/order.service'
 import { useAddress } from '../hooks/useAddress'
 import { fetchProvinceV1ByCode, fetchProvincesV1 } from '../services/provincesApi.service'
@@ -116,6 +118,8 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 	const [addressFormMode, setAddressFormMode] = useState<'create' | 'edit'>('create')
 	const [isAddressDefault, setIsAddressDefault] = useState(false)
 	const [isSaving, setIsSaving] = useState(false)
+	const [showFaceCamera, setShowFaceCamera] = useState(false)
+	const [isFaceIdEnabled, setIsFaceIdEnabled] = useState(Boolean(user.faceIdEnabled))
 	const [activeSection, setActiveSection] = useState<ProfileSectionKey>(initialSection)
 	const isAddressAutoSelectedRef = useRef(false)
 	const preferredOrderId = useMemo(() => new URLSearchParams(window.location.search).get('orderId') || '', [])
@@ -369,15 +373,15 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 	const handleSetDefaultAddress = async (addressId: string) => {
 		try {
 			await chooseDefaultAddress(addressId)
-			toast.success('Da cap nhat dia chi mac dinh')
+			toast.success('Da cập nhật địa chỉ mặc định')
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Khong the dat dia chi mac dinh')
+			toast.error(error instanceof Error ? error.message : 'Không thể dat địa chỉ mặc định')
 		}
 	}
 
 	const buildAddressPayload = () => {
 		if (!recipientName.trim() || !recipientPhone.trim() || !street.trim() || !selectedProvince || !selectedDistrict || !selectedWard) {
-			throw new Error('Vui long nhap day du thong tin dia chi nhan hang')
+			throw new Error('Vui lòng nhập đầy đủ thong tin địa chỉ nhận hàng')
 		}
 
 		return {
@@ -402,20 +406,20 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 
 			if (addressFormMode === 'edit' && selectedAddressId) {
 				if (selectedAddress?.isDefault && !isAddressDefault) {
-					throw new Error('Khong the bo mac dinh dia chi hien tai. Hay dat dia chi khac lam mac dinh truoc.')
+					throw new Error('Không thể bo mặc định địa chỉ hiện tại. Hay dat địa chỉ khác làm mặc định trước.')
 				}
 
 				await editAddress(selectedAddressId, payload)
-				toast.success('Da cap nhat dia chi')
+				toast.success('Da cập nhật địa chỉ')
 				return
 			}
 
 			await addAddress(payload)
 			setAddressFormMode('create')
 			setSelectedAddressId('')
-			toast.success('Da them dia chi moi')
+			toast.success('Da them địa chỉ moi')
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Luu dia chi that bai')
+			toast.error(error instanceof Error ? error.message : 'Lưu địa chỉ thất bại')
 		}
 	}
 
@@ -423,12 +427,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 		event.preventDefault()
 
 		if (!fullName || !email) {
-			toast.error('Vui long nhap day du ho ten va email')
-			return
-		}
-
-		if (!recipientName.trim() || !recipientPhone.trim() || !street.trim() || !selectedProvince || !selectedDistrict || !selectedWard) {
-			toast.error('Vui long chon day du thong tin dia chi nhan hang')
+			toast.error('Vui lòng nhập đầy đủ ho ten va email')
 			return
 		}
 
@@ -436,40 +435,20 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 			try {
 				setIsSaving(true)
 
-				const summaryAddress = [street.trim(), selectedWard.name, selectedDistrict.name, selectedProvince.name]
-					.filter(Boolean)
-					.join(', ')
-
-				const updatedUserPromise = updateProfile(user.id, {
+				const updatedUser = await updateProfile(user.id, {
 					fullName: fullName.trim(),
 					email: email.trim().toLowerCase(),
 					phone: phone.trim(),
 					avatar: avatar.trim(),
-					address: summaryAddress || address.trim(),
+					address: address.trim(),
 					dateOfBirth,
 				})
 
-				if (selectedAddress?.isDefault && !isAddressDefault) {
-					throw new Error('Khong the bo mac dinh dia chi hien tai. Hay dat dia chi khac lam mac dinh truoc.')
-				}
-
-				if (addressFormMode === 'edit' && selectedAddressId) {
-					const payload = buildAddressPayload()
-					await editAddress(selectedAddressId, {
-						...payload,
-					})
-				} else {
-					const payload = buildAddressPayload()
-					await addAddress(payload)
-				}
-
-				const updatedUser = await updatedUserPromise
-
 				onSave(updatedUser)
 				onClose?.()
-				toast.success('Cap nhat thong tin thanh cong')
+				toast.success('Cập nhật thong tin thành công')
 			} catch (error) {
-				toast.error(error instanceof Error ? error.message : 'Cap nhat that bai')
+				toast.error(error instanceof Error ? error.message : 'Cập nhật thất bại')
 			} finally {
 				setIsSaving(false)
 			}
@@ -505,16 +484,16 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 							className="mx-auto h-24 w-24 rounded-full border-4 border-white object-cover shadow-sm"
 						/>
 						<h3 className="mt-3 text-center text-lg font-bold text-slate-800">{fullName || 'Khach hang'}</h3>
-						<p className="text-center text-sm text-slate-500">{phone || 'Chua co so dien thoai'}</p>
+						<p className="text-center text-sm text-slate-500">{phone || 'Chua co số điện thoại'}</p>
 
 						<nav className="mt-4 space-y-1">
 							{[
 								{ key: 'orders', label: 'Đơn hàng của tôi' },
 								{ key: 'voucher', label: 'Vi voucher' },
 								{ key: 'profile', label: 'Thông tin cá nhân' },
-								{ key: 'address', label: 'Địa chỉ nhận hàng' },
-								{ key: 'notifications', label: 'Thông báo' },
-								{ key: 'policy', label: 'Chính sách An Khang' },
+								{ key: 'address', label: 'Địa chỉ nhận hàng' }
+								// { key: 'notifications', label: 'Thông báo' },
+								// { key: 'policy', label: 'Chính sách An Khang' },
 							].map((item) => {
 								const isActive = activeSection === item.key
 
@@ -523,9 +502,8 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 										key={item.key}
 										type="button"
 										onClick={() => setActiveSection(item.key as ProfileSectionKey)}
-										className={`w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
-											isActive ? 'bg-[#e8f8ec] text-[#1f9542]' : 'text-slate-700 hover:bg-white'
-										}`}
+										className={`w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${isActive ? 'bg-[#e8f8ec] text-[#1f9542]' : 'text-slate-700 hover:bg-white'
+											}`}
 									>
 										{item.label}
 									</button>
@@ -536,280 +514,355 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 
 					{activeSection === 'profile' ? (
 						<form className="space-y-4" onSubmit={handleSubmit}>
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-							<label className="block">
-								<span className="mb-1 block text-sm font-medium text-slate-600">Ho va ten</span>
-								<input
-									type="text"
-									value={fullName}
-									onChange={(event) => setFullName(event.target.value)}
-									className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-								/>
-							</label>
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<label className="block">
+									<span className="mb-1 block text-sm font-medium text-slate-600">Ho va ten</span>
+									<input
+										type="text"
+										value={fullName}
+										onChange={(event) => setFullName(event.target.value)}
+										className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+									/>
+								</label>
 
-							<label className="block">
-								<span className="mb-1 block text-sm font-medium text-slate-600">So dien thoai</span>
-								<input
-									type="tel"
-									value={phone}
-									onChange={(event) => setPhone(event.target.value)}
-									className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-								/>
-							</label>
-						</div>
-
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-							<label className="block">
-								<span className="mb-1 block text-sm font-medium text-slate-600">Email</span>
-								<input
-									type="email"
-									value={email}
-									onChange={(event) => setEmail(event.target.value)}
-									className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-								/>
-							</label>
-
-							<label className="block">
-								<span className="mb-1 block text-sm font-medium text-slate-600">Ngay sinh</span>
-								<input
-									type="date"
-									value={dateOfBirth}
-									onChange={(event) => setDateOfBirth(event.target.value)}
-									className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-								/>
-							</label>
-						</div>
-
-						<label className="block">
-							<span className="mb-1 block text-sm font-medium text-slate-600">Dia chi</span>
-							<input
-								type="text"
-								value={selectedAddressText || address}
-								onChange={(event) => setAddress(event.target.value)}
-								className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-							/>
-						</label>
-
-						<div className="rounded-2xl border border-[#d8efdc] bg-[#f7fcf8] p-4">
-							<p className="mb-3 text-sm font-bold text-[#1f9542]">Dia chi nhan hang (API Tinh/Huyen/Xa)</p>
-
-							<div className="mb-4 space-y-2 rounded-xl bg-white p-3">
-								<div className="flex items-center justify-between gap-2">
-									<p className="text-sm font-semibold text-slate-700">Dia chi da luu</p>
-									<button
-										type="button"
-										onClick={handleCreateNewAddress}
-										className="rounded-lg border border-[#86c790] px-3 py-1.5 text-xs font-semibold text-[#1f9542]"
-									>
-										+ Them dia chi moi
-									</button>
-								</div>
-
-								<p className="text-xs text-slate-500">
-									Che do: {addressFormMode === 'edit' ? 'Dang sua dia chi da chon' : 'Dang tao dia chi moi'}
-								</p>
-
-								{addresses.length === 0 && <p className="text-xs text-slate-500">Chua co dia chi nao.</p>}
-
-								{addresses.map((item) => (
-									<div key={item.id} className="rounded-lg border border-slate-200 p-2">
-										<p className="text-xs font-semibold text-slate-700">
-											{item.recipientName} - {item.phone}
-										</p>
-										<p className="mt-1 text-xs text-slate-600">{item.fullAddress}</p>
-										<div className="mt-2 flex flex-wrap gap-2">
-											<button
-												type="button"
-												onClick={() => handleSelectAddressForEdit(item.id)}
-												className={`rounded px-2 py-1 text-xs font-semibold ${
-													selectedAddressId === item.id
-														? 'bg-[#e9f9ed] text-[#1f9542]'
-														: 'bg-slate-100 text-slate-700'
-												}`}
-											>
-												Chon sua
-											</button>
-
-											{!item.isDefault && (
-												<button
-													type="button"
-													onClick={() => void handleSetDefaultAddress(item.id)}
-													className="rounded bg-[#fef3c7] px-2 py-1 text-xs font-semibold text-[#b45309]"
-												>
-													Dat mac dinh
-												</button>
-											)}
-
-											{item.isDefault && (
-												<span className="rounded bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#15803d]">Mac dinh</span>
-											)}
-										</div>
-									</div>
-								))}
+								<label className="block">
+									<span className="mb-1 block text-sm font-medium text-slate-600">So dien thoai</span>
+									<input
+										type="tel"
+										value={phone}
+										onChange={(event) => setPhone(event.target.value)}
+										className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+									/>
+								</label>
 							</div>
 
 							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Nguoi nhan</span>
+									<span className="mb-1 block text-sm font-medium text-slate-600">Email</span>
 									<input
-										type="text"
-										value={recipientName}
-										onChange={(event) => setRecipientName(event.target.value)}
+										type="email"
+										value={email}
+										onChange={(event) => setEmail(event.target.value)}
 										className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
 									/>
 								</label>
 
 								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">So dien thoai nhan hang</span>
+									<span className="mb-1 block text-sm font-medium text-slate-600">Ngay sinh</span>
 									<input
-										type="tel"
-										value={recipientPhone}
-										onChange={(event) => setRecipientPhone(event.target.value)}
+										type="date"
+										value={dateOfBirth}
+										onChange={(event) => setDateOfBirth(event.target.value)}
 										className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
 									/>
 								</label>
 							</div>
 
-							<div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Tinh/Thanh</span>
-									<select
-										value={provinceCode}
-										onChange={(event) => setProvinceCode(event.target.value)}
-										className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a]"
-									>
-										<option value="">Chon tinh/thanh</option>
-										{provinces.map((item) => (
-											<option key={item.code} value={String(item.code)}>
-												{item.name}
-											</option>
-										))}
-									</select>
-								</label>
 
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Quan/Huyen</span>
-									<select
-										value={districtCode}
-										onChange={(event) => setDistrictCode(event.target.value)}
-										disabled={!provinceCode}
-										className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a] disabled:bg-slate-100"
-									>
-										<option value="">Chon quan/huyen</option>
-										{districts.map((item) => (
-											<option key={item.code} value={String(item.code)}>
-												{item.name}
-											</option>
-										))}
-									</select>
-								</label>
 
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Phuong/Xa</span>
-									<select
-										value={wardCode}
-										onChange={(event) => setWardCode(event.target.value)}
-										disabled={!districtCode}
-										className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a] disabled:bg-slate-100"
-									>
-										<option value="">Chon phuong/xa</option>
-										{wards.map((item) => (
-											<option key={item.code} value={String(item.code)}>
-												{item.name}
-											</option>
-										))}
-									</select>
-								</label>
-							</div>
-
-							<div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">So nha, ten duong</span>
-									<input
-										type="text"
-										value={street}
-										onChange={(event) => setStreet(event.target.value)}
-										className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-									/>
-								</label>
-
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Loai dia chi</span>
-									<select
-										value={label}
-										onChange={(event) => setLabel(event.target.value as 'home' | 'office' | 'other')}
-										className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a]"
-									>
-										<option value="home">Nha rieng</option>
-										<option value="office">Van phong</option>
-										<option value="other">Khac</option>
-									</select>
-								</label>
-							</div>
-
-							<label className="mt-4 block">
-								<span className="mb-1 block text-sm font-medium text-slate-600">Ghi chu giao hang</span>
+							<label className="block">
+								<span className="mb-1 block text-sm font-medium text-slate-600">URL avatar</span>
 								<input
-									type="text"
-									value={addressNote}
-									onChange={(event) => setAddressNote(event.target.value)}
+									type="url"
+									value={avatar}
+									onChange={(event) => setAvatar(event.target.value)}
+									placeholder="https://..."
 									className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
 								/>
 							</label>
 
-							<label className="mt-3 flex items-center gap-2">
-								<input
-									type="checkbox"
-									checked={isAddressDefault}
-									onChange={(event) => setIsAddressDefault(event.target.checked)}
-									className="h-4 w-4 rounded border-slate-300 text-[#2ea847] focus:ring-[#7bd58a]"
-								/>
-								<span className="text-sm text-slate-700">Dat dia chi nay lam mac dinh</span>
-							</label>
+							<div className="rounded-3xl border border-[#d8efdc] bg-[#f7fcf8] p-8">
+								<h3 className="mb-8 text-lg font-bold text-[#1f9542]">Cài đặt bảo mật</h3>
+								
+								{!isFaceIdEnabled ? (
+									<div className="flex flex-col items-center gap-6 rounded-2xl border-2 border-dashed border-[#86c790] bg-white/50 p-8">
+										<div className="relative">
+											{/* Circular ring effect */}
+											<div className="absolute inset-0 animate-pulse rounded-full border-2 border-[#72d27a]" style={{ animationDuration: '2s' }}></div>
+											<div className="relative flex h-32 w-32 items-center justify-center rounded-full border-4 border-[#86c790] bg-gradient-to-br from-[#e8f8ec] to-[#f7fcf8]">
+												<svg className="h-16 w-16 text-[#1f9542]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+												</svg>
+											</div>
+										</div>
 
-							<div className="mt-3 flex justify-end">
-								<button
-									type="button"
-									onClick={() => void handleSaveAddressOnly()}
-									className="h-10 rounded-xl border border-[#86c790] bg-white px-4 text-sm font-semibold text-[#1f9542]"
-								>
-									{addressFormMode === 'edit' ? 'Cap nhat dia chi' : 'Them dia chi moi'}
-								</button>
+										<div className="text-center">
+											<p className="text-lg font-bold text-slate-800">Đăng nhập bằng Face ID</p>
+											<p className="mt-2 text-sm text-slate-600">Sử dụng khuôn mặt để đăng nhập nhanh và an toàn hơn</p>
+										</div>
+
+										<div className="w-full rounded-xl bg-slate-50 p-4">
+											<p className="text-xs font-semibold text-slate-700 mb-3">Hướng dẫn:</p>
+											<ol className="space-y-2 text-xs text-slate-600">
+												<li className="flex gap-2">
+													<span className="font-bold text-[#1f9542]">1.</span>
+													<span>Đặt khuôn mặt vào khung camera</span>
+												</li>
+												<li className="flex gap-2">
+													<span className="font-bold text-[#1f9542]">2.</span>
+													<span>Di chuyển đầu chậm để hoàn thành vòng tròn</span>
+												</li>
+												<li className="flex gap-2">
+													<span className="font-bold text-[#1f9542]">3.</span>
+													<span>Chờ xác nhận khuôn mặt</span>
+												</li>
+											</ol>
+										</div>
+
+										<button
+											type="button"
+											onClick={() => setShowFaceCamera(true)}
+											className="flex items-center justify-center gap-2 rounded-xl bg-[#1f9542] px-6 py-3 font-semibold text-white transition-all hover:bg-[#168035] hover:shadow-lg"
+										>
+											<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+											</svg>
+											Bắt đầu thiết lập
+										</button>
+									</div>
+								) : (
+									<div className="flex items-center justify-between rounded-2xl border-2 border-[#86c790] bg-gradient-to-r from-[#e8f8ec] to-[#f7fcf8] p-6">
+										<div className="flex items-center gap-4">
+											<div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1f9542]">
+												<svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+													<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+												</svg>
+											</div>
+											<div>
+												<p className="text-lg font-bold text-slate-800">Face ID đã bật</p>
+												<p className="text-sm text-slate-600">Bạn có thể đăng nhập bằng khuôn mặt</p>
+											</div>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												disableFaceId().then(() => {
+													setIsFaceIdEnabled(false)
+													toast.success('Đã tắt Face ID')
+													const updatedUser = { ...user, faceIdEnabled: false }
+													localStorage.setItem('clientUser', JSON.stringify(updatedUser))
+													onSave(updatedUser)
+												}).catch(err => toast.error(err.message))
+											}}
+											className="h-11 rounded-lg border border-[#86c790] bg-white px-4 text-sm font-semibold text-[#1f9542] transition-all hover:bg-slate-50"
+										>
+											Tắt Face ID
+										</button>
+									</div>
+								)}
 							</div>
 
-							{isLoadingAddressData && <p className="mt-2 text-xs text-slate-500">Dang tai du lieu dia chi...</p>}
-						</div>
-
-						<label className="block">
-							<span className="mb-1 block text-sm font-medium text-slate-600">URL avatar</span>
-							<input
-								type="url"
-								value={avatar}
-								onChange={(event) => setAvatar(event.target.value)}
-								placeholder="https://..."
-								className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-							/>
-						</label>
-
-						<div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-							{!isPageMode && onClose && (
+							<div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+								{!isPageMode && onClose && (
+									<button
+										type="button"
+										onClick={onClose}
+										className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600"
+									>
+										Đóng
+									</button>
+								)}
 								<button
-									type="button"
-									onClick={onClose}
-									className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600"
+									type="submit"
+									disabled={isSaving}
+									className="h-10 rounded-xl bg-[linear-gradient(120deg,#25a53e,#47c95a)] px-5 text-sm font-bold text-white"
 								>
-									Đóng
+									{isSaving ? 'Dang luu...' : 'Lưu thay doi'}
 								</button>
-							)}
-							<button
-								type="submit"
-								disabled={isSaving}
-								className="h-10 rounded-xl bg-[linear-gradient(120deg,#25a53e,#47c95a)] px-5 text-sm font-bold text-white"
-							>
-								{isSaving ? 'Dang luu...' : 'Luu thay doi'}
-							</button>
-						</div>
+							</div>
 						</form>
+					) : activeSection === 'address' ? (
+						<section className="rounded-2xl border border-slate-200 bg-white p-5">
+							<div className="rounded-2xl border border-[#d8efdc] bg-[#f7fcf8] p-4">
+								<p className="mb-3 text-sm font-bold text-[#1f9542]">Dia chi nhận hàng (API Tinh/Huyen/Xa)</p>
+
+								<div className="mb-4 space-y-2 rounded-xl bg-white p-3">
+									<div className="flex items-center justify-between gap-2">
+										<p className="text-sm font-semibold text-slate-700">Dia chi da luu</p>
+										<button
+											type="button"
+											onClick={handleCreateNewAddress}
+											className="rounded-lg border border-[#86c790] px-3 py-1.5 text-xs font-semibold text-[#1f9542]"
+										>
+											+ Them địa chỉ moi
+										</button>
+									</div>
+
+									<p className="text-xs text-slate-500">
+										Che do: {addressFormMode === 'edit' ? 'Dang sua địa chỉ da chon' : 'Dang tao địa chỉ moi'}
+									</p>
+
+									{addresses.length === 0 && <p className="text-xs text-slate-500">Chua co địa chỉ nao.</p>}
+
+									{addresses.map((item) => (
+										<div key={item.id} className="rounded-lg border border-slate-200 p-2">
+											<p className="text-xs font-semibold text-slate-700">
+												{item.recipientName} - {item.phone}
+											</p>
+											<p className="mt-1 text-xs text-slate-600">{item.fullAddress}</p>
+											<div className="mt-2 flex flex-wrap gap-2">
+												<button
+													type="button"
+													onClick={() => handleSelectAddressForEdit(item.id)}
+													className={`rounded px-2 py-1 text-xs font-semibold ${selectedAddressId === item.id
+														? 'bg-[#e9f9ed] text-[#1f9542]'
+														: 'bg-slate-100 text-slate-700'
+														}`}
+												>
+													Chon sua
+												</button>
+
+												{!item.isDefault && (
+													<button
+														type="button"
+														onClick={() => void handleSetDefaultAddress(item.id)}
+														className="rounded bg-[#fef3c7] px-2 py-1 text-xs font-semibold text-[#b45309]"
+													>
+														Dat mặc định
+													</button>
+												)}
+
+												{item.isDefault && (
+													<span className="rounded bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#15803d]">Mac dinh</span>
+												)}
+											</div>
+										</div>
+									))}
+								</div>
+
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<label className="block">
+										<span className="mb-1 block text-sm font-medium text-slate-600">Nguoi nhan</span>
+										<input
+											type="text"
+											value={recipientName}
+											onChange={(event) => setRecipientName(event.target.value)}
+											className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+										/>
+									</label>
+
+									<label className="block">
+										<span className="mb-1 block text-sm font-medium text-slate-600">So dien thoai nhận hàng</span>
+										<input
+											type="tel"
+											value={recipientPhone}
+											onChange={(event) => setRecipientPhone(event.target.value)}
+											className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+										/>
+									</label>
+								</div>
+
+								<div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+									<label className="block">
+										<span className="mb-1 block text-sm font-medium text-slate-600">Tinh/Thanh</span>
+										<select
+											value={provinceCode}
+											onChange={(event) => setProvinceCode(event.target.value)}
+											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a]"
+										>
+											<option value="">Chon tinh/thanh</option>
+											{provinces.map((item) => (
+												<option key={item.code} value={String(item.code)}>
+													{item.name}
+												</option>
+											))}
+										</select>
+									</label>
+
+									<label className="block">
+										<span className="mb-1 block text-sm font-medium text-slate-600">Quan/Huyen</span>
+										<select
+											value={districtCode}
+											onChange={(event) => setDistrictCode(event.target.value)}
+											disabled={!provinceCode}
+											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a] disabled:bg-slate-100"
+										>
+											<option value="">Chon quan/huyen</option>
+											{districts.map((item) => (
+												<option key={item.code} value={String(item.code)}>
+													{item.name}
+												</option>
+											))}
+										</select>
+									</label>
+
+									<label className="block">
+										<span className="mb-1 block text-sm font-medium text-slate-600">Phuong/Xa</span>
+										<select
+											value={wardCode}
+											onChange={(event) => setWardCode(event.target.value)}
+											disabled={!districtCode}
+											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a] disabled:bg-slate-100"
+										>
+											<option value="">Chon phuong/xa</option>
+											{wards.map((item) => (
+												<option key={item.code} value={String(item.code)}>
+													{item.name}
+												</option>
+											))}
+										</select>
+									</label>
+								</div>
+
+								<div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<label className="block">
+										<span className="mb-1 block text-sm font-medium text-slate-600">So nha, ten duong</span>
+										<input
+											type="text"
+											value={street}
+											onChange={(event) => setStreet(event.target.value)}
+											className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+										/>
+									</label>
+
+									<label className="block">
+										<span className="mb-1 block text-sm font-medium text-slate-600">Loai địa chỉ</span>
+										<select
+											value={label}
+											onChange={(event) => setLabel(event.target.value as 'home' | 'office' | 'other')}
+											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a]"
+										>
+											<option value="home">Nha rieng</option>
+											<option value="office">Van phong</option>
+											<option value="other">Khac</option>
+										</select>
+									</label>
+								</div>
+
+								<label className="mt-4 block">
+									<span className="mb-1 block text-sm font-medium text-slate-600">Ghi chu giao hang</span>
+									<input
+										type="text"
+										value={addressNote}
+										onChange={(event) => setAddressNote(event.target.value)}
+										className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+									/>
+								</label>
+
+								<label className="mt-3 flex items-center gap-2">
+									<input
+										type="checkbox"
+										checked={isAddressDefault}
+										onChange={(event) => setIsAddressDefault(event.target.checked)}
+										className="h-4 w-4 rounded border-slate-300 text-[#2ea847] focus:ring-[#7bd58a]"
+									/>
+									<span className="text-sm text-slate-700">Dat địa chỉ nay lam mặc định</span>
+								</label>
+
+								<div className="mt-3 flex justify-end">
+									<button
+										type="button"
+										onClick={() => void handleSaveAddressOnly()}
+										className="h-10 rounded-xl border border-[#86c790] bg-white px-4 text-sm font-semibold text-[#1f9542]"
+									>
+										{addressFormMode === 'edit' ? 'Cập nhật địa chỉ' : 'Them địa chỉ moi'}
+									</button>
+								</div>
+
+								{isLoadingAddressData && <p className="mt-2 text-xs text-slate-500">Dang tai du lieu địa chỉ...</p>}
+							</div>
+						</section>
 					) : activeSection === 'orders' ? (
 						<section className="rounded-2xl border border-slate-200 bg-white p-5">
 							<div className="flex flex-wrap items-center justify-between gap-3">
@@ -848,9 +901,8 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 											return (
 												<div
 													key={order.id}
-													className={`rounded-lg border p-3 transition ${
-														isActive ? 'border-[#72d27a] bg-[#ecf9ef]' : 'border-slate-200 bg-white'
-													}`}
+													className={`rounded-lg border p-3 transition ${isActive ? 'border-[#72d27a] bg-[#ecf9ef]' : 'border-slate-200 bg-white'
+														}`}
 												>
 													<div className="flex items-start justify-between gap-2">
 														<p className="text-sm font-bold text-slate-800">{order.orderCode}</p>
@@ -971,7 +1023,6 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 						<section className="rounded-2xl border border-slate-200 bg-white p-5">
 							<h3 className="text-lg font-bold text-slate-800">
 								{activeSection === 'voucher' && 'Vi voucher'}
-								{activeSection === 'address' && 'Địa chỉ nhận hàng'}
 								{activeSection === 'notifications' && 'Thông báo'}
 								{activeSection === 'policy' && 'Chính sách An Khang'}
 							</h3>
@@ -989,6 +1040,27 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 					)}
 				</div>
 			</div>
+
+			{showFaceCamera && (
+				<FaceCamera
+					onClose={() => setShowFaceCamera(false)}
+					onCapture={async (blob) => {
+						try {
+							await enrollFaceId(blob)
+							setIsFaceIdEnabled(true)
+							toast.success('Đăng ký Face ID thành công!')
+							setShowFaceCamera(false)
+
+							const updatedUser = { ...user, faceIdEnabled: true }
+							localStorage.setItem('clientUser', JSON.stringify(updatedUser))
+							onSave(updatedUser)
+						} catch (err: any) {
+							toast.error(err.message || 'Lỗi không xác định')
+							setShowFaceCamera(false)
+						}
+					}}
+				/>
+			)}
 		</div>
 	)
 }

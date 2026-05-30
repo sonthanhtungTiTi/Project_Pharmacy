@@ -24,7 +24,7 @@ export const getEventBySlug = async (slug: string): Promise<EventData> => {
 	// Giả lập API call - Trong thực tế sẽ gọi:
 	// const res = await fetch(`${API_BASE_URL}/client/events/${slug}`)
 	// return res.json()
-	
+
 	await new Promise(resolve => setTimeout(resolve, 500)) // Fake delay
 
 	if (slug === 'online-gia-re') {
