@@ -88,6 +88,7 @@ function PharmacyLayout({
 		localStorage.removeItem('clientAccessToken')
 		localStorage.removeItem('clientUser')
 		setAuthUser(null)
+		window.location.reload()
 	}
 
 	return (
@@ -124,11 +125,10 @@ function PharmacyLayout({
 									<button
 										type="button"
 										onClick={onSelectAllCategories}
-										className={`mb-3 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-											!selectedCategoryId
+										className={`mb-3 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${!selectedCategoryId
 												? 'bg-[#e9f9ed] font-semibold text-[#1f9542]'
 												: 'text-slate-700 hover:bg-[#f2fbf4] hover:text-[#1f9542]'
-										}`}
+											}`}
 									>
 										Tat ca danh muc
 										<span aria-hidden="true">&gt;</span>
@@ -142,11 +142,10 @@ function PharmacyLayout({
 												id={`category-${item._id}`}
 												data-category-id={item._id}
 												onClick={() => onCategorySelect?.(item)}
-												className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition ${
-													selectedCategoryId === item._id
+												className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition ${selectedCategoryId === item._id
 														? 'bg-[#e9f9ed] font-semibold text-[#1f9542]'
 														: 'hover:bg-[#f2fbf4] hover:text-[#1f9542]'
-												}`}
+													}`}
 											>
 												{item.categoryName}
 												<span aria-hidden="true">&gt;</span>

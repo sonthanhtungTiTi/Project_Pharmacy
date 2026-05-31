@@ -39,6 +39,9 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 		toast.success('Đăng nhập thành công')
 		onAuthSuccess?.(user)
 		onClose()
+		setTimeout(() => {
+			window.location.reload()
+		}, 500)
 	}
 
 	const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
@@ -321,10 +324,10 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 				<FaceCamera 
 					mode="login"
 					onClose={() => setShowFaceCamera(false)}
-					onCapture={async (blob) => {
+					onCapture={async (descriptors) => {
 						try {
 							setIsSubmitting(true)
-							const result = await loginWithFaceId(phone.trim(), blob)
+							const result = await loginWithFaceId(phone.trim(), descriptors)
 							handleAuthSuccess(result.user, result.accessToken)
 						} catch (error: any) {
 							toast.error(error.message || 'Đăng nhập Face ID thất bại')

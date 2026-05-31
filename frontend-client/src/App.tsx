@@ -72,7 +72,12 @@ const getHealthNewsIdFromPath = () => {
   return match ? match[1] : ''
 }
 
+import { useFaceDetection } from './hooks/useFaceDetection'
+
 function App() {
+  // Preload face-api models on app startup
+  useFaceDetection()
+
   const [activeProductId, setActiveProductId] = useState(getProductIdFromPath())
   const [activeCategoryId, setActiveCategoryId] = useState(getCategoryIdFromPath())
   const [isConsultPage, setIsConsultPage] = useState(isConsultPagePath())
