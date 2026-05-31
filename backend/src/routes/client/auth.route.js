@@ -25,8 +25,8 @@ router.post('/google', authController.googleLoginOrRegister)
 router.post('/google/code', authController.googleLoginOrRegisterByCode)
 
 // Routes cho Face ID
-router.post('/face/enroll', authenticateClientJwt, upload.array('faceImages', 3), faceAuthController.enrollFaceId)
+router.post('/face/enroll', authenticateClientJwt, faceAuthController.enrollFaceId)
 router.post('/face/disable', authenticateClientJwt, faceAuthController.disableFaceId)
-router.post('/face/login', faceLoginLimiter, upload.array('faceImages', 3), faceAuthController.loginWithFaceId)
+router.post('/face/login', faceLoginLimiter, faceAuthController.loginWithFaceId)
 
 module.exports = router

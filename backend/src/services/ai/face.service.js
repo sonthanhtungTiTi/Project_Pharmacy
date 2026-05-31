@@ -8,7 +8,7 @@ let faceapi = null
  */
 const getFaceApi = () => {
 	if (!faceapi) {
-		faceapi = require('@vladmandic/face-api')
+		faceapi = require('@vladmandic/face-api/dist/face-api.node-wasm.js')
 	}
 	return faceapi
 }
