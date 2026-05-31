@@ -17,10 +17,6 @@ const loadFaceModels = async () => {
 			await faceapi.tf.ready()
 		}
 
-		// Khởi tạo backend WebAssembly
-		await faceapi.tf.setBackend('wasm')
-		await faceapi.tf.ready()
-
 		const modelsDir = path.resolve(
 			process.cwd(),
 			process.env.FACE_MODELS_DIR || './node_modules/@vladmandic/face-api/model'

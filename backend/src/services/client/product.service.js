@@ -1,7 +1,6 @@
 const mongoose = require('mongoose')
 
 const Product = require('../../models/product.model')
-const { analyzePrescriptionImage } = require('../ai/gemini.service')
 
 class ProductServiceError extends Error {
 	constructor(message, statusCode = 400) {
@@ -224,18 +223,30 @@ const getProductDetail = async (productId) => {
 	return product
 }
 
+const mockExtractTextFromImage = async (imageBuffer) => {
+	// Giả lập độ trễ của API OCR (Google Cloud Vision, Tesseract...)
+	await new Promise(resolve => setTimeout(resolve, 1500))
+	
+	// Trả về các cụm từ (tên thuốc) phân cách bằng dấu phẩy
+	return "Oztis giảm triệu chứng thoái hóa khớp, Paracetamol 500mg, Thuốc không tồn tại XYZ"
+}
+
 const searchProductsByImage = async (imageBuffer) => {
 	try {
-		const extractedMedicines = await analyzePrescriptionImage(imageBuffer)
+		const extractedText = await mockExtractTextFromImage(imageBuffer)
 		
-		if (!extractedMedicines || extractedMedicines.length === 0) {
-			return { items: [], extractedText: "Không nhận diện được loại thuốc nào từ hình ảnh." }
+		// Tiền xử lý text: Tách theo dấu phẩy để lấy chính xác các cụm từ/tên thuốc
+		// thay vì tách theo từng khoảng trắng gây nhiễu
+		const phrases = extractedText.split(',').map(s => s.trim()).filter(s => s.length > 2)
+		
+		if (phrases.length === 0) {
+			return { items: [], extractedText }
 		}
 		
-		// Tạo mảng regex để tìm kiếm chính xác cụm từ (bỏ qua chữ hoa/thường)
-		const regexArray = extractedMedicines.map(kw => new RegExp(escapeRegex(kw), 'i'))
+		// Tạo mảng regex để tìm kiếm chính xác cụm từ (có thể bỏ chữ hoa chữ thường)
+		const regexArray = phrases.map(kw => new RegExp(escapeRegex(kw), 'i'))
 		
-		// Tìm các sản phẩm khớp với tên thuốc, hoạt chất
+		// Tìm các sản phẩm khớp với bất kỳ cụm từ nào
 		const products = await Product.find({
 			isActive: { $ne: false },
 			$or: [
@@ -245,20 +256,16 @@ const searchProductsByImage = async (imageBuffer) => {
 			]
 		})
 		.select('_id medicineCode productName categoryId categoryName images isActive sellUnits defaultSellUnit totalBaseQuantity price requiresPrescription')
-		.limit(20) // Trả về tối đa 20 kết quả để khách hàng chọn
+		.limit(10)
 		.lean()
 		
 		return {
 			items: products.map(toProductCard),
-			extractedText: extractedMedicines.join(', ')
+			extractedText
 		}
 	} catch (error) {
-		// Bắt lỗi đặc thù (mờ, viết tay) và đẩy lên Client
-		if (error.code === 'ERR_BLURRY' || error.code === 'ERR_HANDWRITTEN') {
-			throw new ProductServiceError(error.message, 400)
-		}
-		console.error("Search By Image Error:", error)
-		throw new ProductServiceError(error.message || 'Lỗi xử lý hình ảnh', 500)
+		console.error("OCR Error:", error)
+		throw new ProductServiceError('Lỗi xử lý hình ảnh', 500)
 	}
 }
 

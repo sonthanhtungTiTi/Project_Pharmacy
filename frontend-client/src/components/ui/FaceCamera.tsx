@@ -295,6 +295,10 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 	const numDashes = 72
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9e9fbe15950d2c09cc70f0a2bdb58093fb9b5c66
 	return (
 		<div className="fixed inset-0 z-[9999] flex flex-col bg-black text-white">
 			{/* Top Bar */}
