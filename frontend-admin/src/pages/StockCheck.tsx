@@ -26,6 +26,9 @@ export default function StockCheck() {
 
     if (isScanning) {
       setCameraError(null)
+      const html5QrCode = new Html5Qrcode("reader")
+      scannerRef.current = html5QrCode
+
       const formatsToSupport = [
         Html5QrcodeSupportedFormats.QR_CODE,
         Html5QrcodeSupportedFormats.UPC_A,
@@ -38,9 +41,6 @@ export default function StockCheck() {
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.ITF,
       ];
-
-      const html5QrCode = new Html5Qrcode("reader", { formatsToSupport, verbose: false })
-      scannerRef.current = html5QrCode
 
       html5QrCode.start(
         { facingMode: "environment" },
@@ -267,9 +267,9 @@ export default function StockCheck() {
                   </p>
                   
                   {/* Mã QR của hệ thống */}
-                  {(product as any).qrCode && (
+                  {product.qrCode && (
                     <div className="mt-3 bg-blue-50/50 p-2 rounded border border-blue-100 flex items-start gap-3">
-                      <img src={(product as any).qrCode} alt={`QR Code ${product.medicineCode}`} className="w-16 h-16 rounded bg-white" />
+                      <img src={product.qrCode} alt={`QR Code ${product.medicineCode}`} className="w-16 h-16 rounded bg-white" />
                       <div>
                         <p className="text-xs font-semibold text-blue-800 mb-1">Mã QR Hệ thống</p>
                         <p className="text-[11px] text-gray-500 leading-tight">In mã này dán lên hộp thuốc để quét kiểm kho nhanh và chính xác 100%.</p>
@@ -363,7 +363,7 @@ export default function StockCheck() {
           categoryName={product.categoryName || ''}
           onSaved={(updatedProduct) => {
             // Because updatedProduct may not have qrCode generated yet, let's keep the old one or refetch
-            setProduct(prev => prev ? { ...updatedProduct, qrCode: (prev as any).qrCode } as unknown as Product : updatedProduct)
+            setProduct(prev => prev ? { ...updatedProduct, qrCode: prev.qrCode } : updatedProduct)
             setShowEditForm(false)
             setToastMessage("Cập nhật thông tin thuốc thành công!")
             setTimeout(() => setToastMessage(null), 2500)

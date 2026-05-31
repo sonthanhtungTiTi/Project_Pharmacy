@@ -24,7 +24,6 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 	const [otp, setOtp] = useState('')
 	const [newPassword, setNewPassword] = useState('')
 	const [confirmPassword, setConfirmPassword] = useState('')
-	const [resetToken, setResetToken] = useState('')
 	const [showNewPassword, setShowNewPassword] = useState(false)
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 	const [maskedEmail, setMaskedEmail] = useState('')
@@ -68,13 +67,10 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 
 		try {
 			setIsVerifyingOtp(true)
-			const res = await verifyForgotPasswordOtp({
+			await verifyForgotPasswordOtp({
 				email: email.trim().toLowerCase(),
 				otp: otp.trim(),
 			})
-			if (res.reset_token) {
-				setResetToken(res.reset_token)
-			}
 			toast.success('Xác nhận OTP thành công')
 			setStep('password')
 		} catch (error) {
@@ -105,7 +101,7 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 		try {
 			setIsResettingPassword(true)
 			await resetForgotPassword({
-				resetToken,
+				email: email.trim().toLowerCase(),
 				newPassword,
 				confirmPassword,
 			})

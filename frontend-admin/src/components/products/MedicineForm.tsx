@@ -35,7 +35,7 @@ const buildInitialFormData = (medicine?: Product) => ({
   expiry: medicine?.expiry || '',
   description: medicine?.description || '',
   images: Array.isArray(medicine?.images) ? medicine.images.join('; ') : (medicine?.images || ''),
-  requiresPrescription: (medicine as any)?.requiresPrescription || false,
+  requiresPrescription: medicine?.requiresPrescription || false,
 })
 
 const normalizeSavedProduct = (payload: any): Product => {
