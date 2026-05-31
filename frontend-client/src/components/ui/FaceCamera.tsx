@@ -294,11 +294,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 	const progressPercent = stepIndex === 0 ? 0 : (stepIndex / STEPS.length) * 100
 	const numDashes = 72
 
-<<<<<<< HEAD
-=======
 
-
->>>>>>> 4ca94b062b9301fe5b13b37707bd965d7567407d
 	return (
 		<div className="fixed inset-0 z-[9999] flex flex-col bg-black text-white">
 			{/* Top Bar */}

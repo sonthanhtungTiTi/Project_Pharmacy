@@ -46,14 +46,9 @@ export default function StockCheck() {
         { facingMode: "environment" },
         {
           fps: 10,
-<<<<<<< HEAD
-          qrbox: { width: 350, height: 150 }
-        },
-=======
           qrbox: { width: 350, height: 150 },
           formatsToSupport: formatsToSupport
         } as any,
->>>>>>> 4ca94b062b9301fe5b13b37707bd965d7567407d
         (decodedText) => {
           // Khi quét thành công
           setScannedCode(prev => {
@@ -63,11 +58,7 @@ export default function StockCheck() {
             return decodedText
           })
         },
-<<<<<<< HEAD
-        (_err) => {
-=======
         () => {
->>>>>>> 4ca94b062b9301fe5b13b37707bd965d7567407d
           // Ignore parse errors, they spam
         }
       ).catch((err) => {
