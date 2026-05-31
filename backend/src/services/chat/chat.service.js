@@ -658,7 +658,7 @@ const toProductCard = (doc) => {
         productName: doc.productName || doc.medicineName || 'San pham',
         imageUrl: normalizeImageField(cleanedImages[0]),
         price: Number(doc.price || 0),
-        productUrl: `http://localhost:5173/product/${id}`,
+        productUrl: `https://nhathuocqt.shop/product/${id}`,
     }
 }
 

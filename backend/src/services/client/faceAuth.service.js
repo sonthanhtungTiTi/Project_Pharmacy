@@ -1,5 +1,5 @@
 const User = require('../../models/user.model')
-const { extractDescriptor, computeDistance, isMatch } = require('../ai/face.service')
+const { computeDistance, isMatch } = require('../ai/face.service')
 const jwt = require('jsonwebtoken')
 
 const createAccessToken = (user) => {
@@ -30,11 +30,12 @@ const sanitizeUser = (user) => ({
 
 /**
  * Đăng ký Face ID cho người dùng đã đăng nhập.
+ * Nhận 3 vector từ Client gửi lên.
  * 
- * FIX 1: Cross-check 3 ảnh phải cùng 1 người trước khi lưu DB.
+ * FIX 1: Cross-check 3 vector phải cùng 1 người trước khi lưu DB.
  * FIX 2: Ghi thêm metadata phiên bản mô hình (faceDescriptorVersion).
  */
-const enrollFaceId = async (userId, imageBuffers) => {
+const enrollFaceId = async (userId, descriptors) => {
 	const user = await User.findById(userId)
 	if (!user) {
 		const error = new Error('Không tìm thấy người dùng')
@@ -42,11 +43,12 @@ const enrollFaceId = async (userId, imageBuffers) => {
 		throw error
 	}
 
-	// Trích xuất 3 vector 128 chiều song song để tối ưu tốc độ
-	const descriptorsArrays = await Promise.all(
-		imageBuffers.map((buffer) => extractDescriptor(buffer))
-	)
-	const descriptors = descriptorsArrays.map((desc) => Array.from(desc))
+	if (!descriptors || descriptors.length < 3) {
+		const error = new Error('Cần cung cấp đủ 3 góc khuôn mặt')
+		error.statusCode = 400
+		throw error
+	}
+
 	const [d0, d1, d2] = descriptors
 
 	// ─── FIX 1: Kiểm tra 3 ảnh phải thuộc cùng 1 người ───────────────────
@@ -64,7 +66,7 @@ const enrollFaceId = async (userId, imageBuffers) => {
 			distances: { d01: +d01.toFixed(4), d02: +d02.toFixed(4), d12: +d12.toFixed(4) },
 			timestamp: new Date().toISOString(),
 		}))
-		const error = new Error('Ba ảnh không khớp với cùng một người. Vui lòng chụp lại trong điều kiện ánh sáng tốt.')
+		const error = new Error('Ba góc khuôn mặt không khớp cùng một người. Vui lòng chụp lại trong điều kiện ánh sáng tốt.')
 		error.statusCode = 400
 		throw error
 	}
@@ -117,15 +119,15 @@ const disableFaceId = async (userId) => {
  * FIX 3: Tính confidence score + structured logging cho security audit.
  * FIX 4: Liveness check đầy đủ (min & max dist) để chặn ảnh tĩnh và ảnh không nhất quán.
  */
-const loginWithFaceId = async (identity, imageBuffers) => {
+const loginWithFaceId = async (identity, descriptors) => {
 	if (!identity) {
 		const error = new Error('Yêu cầu email hoặc số điện thoại để xác thực')
 		error.statusCode = 400
 		throw error
 	}
 
-	if (!imageBuffers || imageBuffers.length < 3) {
-		const error = new Error('Cần 3 ảnh để xác thực liveness')
+	if (!descriptors || descriptors.length < 3) {
+		const error = new Error('Cần 3 vector khuôn mặt để xác thực liveness')
 		error.statusCode = 400
 		throw error
 	}
@@ -142,11 +144,7 @@ const loginWithFaceId = async (identity, imageBuffers) => {
 		throw error
 	}
 
-	// Trích xuất 3 vector từ 3 ảnh login (chạy song song)
-	const loginDescriptorsArrays = await Promise.all(
-		imageBuffers.map((buf) => extractDescriptor(buf))
-	)
-	const loginDescriptors = loginDescriptorsArrays.map((desc) => Array.from(desc))
+	const loginDescriptors = descriptors
 
 	// ─── FIX 4: ANTI-SPOOFING – Kiểm tra Liveness đầy đủ ────────────────
 	const distStraightLeft  = computeDistance(loginDescriptors[0], loginDescriptors[1])

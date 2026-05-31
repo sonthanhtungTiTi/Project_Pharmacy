@@ -3,17 +3,16 @@ const faceAuthService = require('../../services/client/faceAuth.service')
 const enrollFaceId = async (req, res) => {
 	try {
 		const userId = req.auth.userId
-		const files = req.files
+		const { faceDescriptors } = req.body
 
-		if (!files || files.length === 0) {
+		if (!faceDescriptors || faceDescriptors.length === 0) {
 			return res.status(400).json({ 
 				success: false, 
-				message: 'Vui lòng cung cấp hình ảnh khuôn mặt' 
+				message: 'Vui lòng cung cấp dữ liệu khuôn mặt' 
 			})
 		}
 
-		const imageBuffers = files.map(file => file.buffer)
-		await faceAuthService.enrollFaceId(userId, imageBuffers)
+		await faceAuthService.enrollFaceId(userId, faceDescriptors)
 
 		return res.status(200).json({
 			success: true,
@@ -50,8 +49,7 @@ const disableFaceId = async (req, res) => {
 
 const loginWithFaceId = async (req, res) => {
 	try {
-		const files = req.files
-		const { email } = req.body
+		const { email, faceDescriptors } = req.body
 
 		if (!email) {
 			return res.status(400).json({
@@ -60,15 +58,14 @@ const loginWithFaceId = async (req, res) => {
 			})
 		}
 
-		if (!files || files.length < 3) {
+		if (!faceDescriptors || faceDescriptors.length < 3) {
 			return res.status(400).json({ 
 				success: false, 
-				message: 'Vui lòng cung cấp đủ 3 ảnh khuôn mặt (thẳng, trái, phải)' 
+				message: 'Vui lòng cung cấp đủ 3 góc khuôn mặt (thẳng, trái, phải)' 
 			})
 		}
 
-		const imageBuffers = files.map(file => file.buffer)
-		const data = await faceAuthService.loginWithFaceId(email, imageBuffers)
+		const data = await faceAuthService.loginWithFaceId(email, faceDescriptors)
 
 		return res.status(200).json({
 			success: true,

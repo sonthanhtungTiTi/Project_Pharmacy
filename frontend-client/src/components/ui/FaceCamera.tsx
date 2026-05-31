@@ -8,14 +8,14 @@ interface FaceCameraProps {
 }
 
 // ─── Cấu hình Stable Frame Detection ───────────────────────────────────────
-const STABLE_FRAMES_REQUIRED = 5    // Cần 5 frame liên tiếp ở đúng góc
-const STABLE_ANGLE_STD_DEV_MAX = 3.0 // Độ lệch chuẩn tối đa (độ) để coi là "đủ ổn định"
+const STABLE_FRAMES_REQUIRED = 3    // Cần 3 frame liên tiếp ở đúng góc (giảm xuống để tăng tốc độ nhận dạng)
+const STABLE_ANGLE_STD_DEV_MAX = 5.0 // Độ lệch chuẩn tối đa (độ) để coi là "đủ ổn định" (tăng độ bao dung)
 // ────────────────────────────────────────────────────────────────────────────
 
 const ENROLL_STEPS = [
-	{ id: 'straight', label: 'Nhìn thẳng vào camera', check: (yaw: number, pitch: number) => Math.abs(yaw) <= 15 && Math.abs(pitch) <= 15 },
-	{ id: 'left',     label: 'Quay mặt sang TRÁI một chút', check: (yaw: number, _pitch: number) => yaw < -15 },
-	{ id: 'right',    label: 'Quay mặt sang PHẢI một chút', check: (yaw: number, _pitch: number) => yaw > 15 },
+	{ id: 'straight', label: 'Nhìn thẳng vào camera', check: (yaw: number, pitch: number) => Math.abs(yaw) <= 15 && Math.abs(pitch) <= 20 },
+	{ id: 'left',     label: 'Quay mặt sang TRÁI một chút', check: (yaw: number, _pitch: number) => yaw < -10 },
+	{ id: 'right',    label: 'Quay mặt sang PHẢI một chút', check: (yaw: number, _pitch: number) => yaw > 10 },
 ]
 
 const shuffleArray = (array: any[]) => {
@@ -39,6 +39,60 @@ const computeStdDev = (values: number[]): number => {
 	return Math.sqrt(variance)
 }
 
+/**
+ * Estimates head pose angles (yaw and pitch in degrees) using 68 facial landmarks.
+ */
+const estimatePose = (landmarks: any) => {
+	const positions = landmarks.positions
+	if (!positions || positions.length < 68) return { yaw: 0, pitch: 0 }
+
+	// 1. Yaw (horizontal head rotation)
+	// Left eye average point (36-41) and Right eye average point (42-47)
+	let sumLeftX = 0, sumLeftY = 0
+	for (let i = 36; i <= 41; i++) {
+		sumLeftX += positions[i].x
+		sumLeftY += positions[i].y
+	}
+	const eyeLeft = { x: sumLeftX / 6, y: sumLeftY / 6 }
+
+	let sumRightX = 0, sumRightY = 0
+	for (let i = 42; i <= 47; i++) {
+		sumRightX += positions[i].x
+		sumRightY += positions[i].y
+	}
+	const eyeRight = { x: sumRightX / 6, y: sumRightY / 6 }
+
+	const noseTip = positions[30]
+
+	const dLeft = noseTip.x - eyeLeft.x
+	const dRight = eyeRight.x - noseTip.x
+	
+	const sumX = dLeft + dRight
+	const asymmetryX = sumX !== 0 ? (dLeft - dRight) / sumX : 0
+	
+	// Multiply by negative factor so that:
+	// - turning left (asymmetryX is positive because nose moves right) yields negative yaw (yaw < -15)
+	// - turning right (asymmetryX is negative because nose moves left) yields positive yaw (yaw > 15)
+	const yaw = -asymmetryX * 50
+
+	// 2. Pitch (vertical head rotation)
+	// Midpoint of eyes vertically vs nose tip vs chin (index 8)
+	const eyeCenterY = (eyeLeft.y + eyeRight.y) / 2
+	const chin = positions[8]
+	
+	const dEyeToNose = noseTip.y - eyeCenterY
+	const dNoseToChin = Math.max(1, chin.y - noseTip.y)
+	
+	const pitchRatio = dEyeToNose / dNoseToChin
+	
+	// Baseline pitch ratio when looking straight is around 0.8
+	// If looking UP: nose moves closer to eyes, pitchRatio decreases.
+	// If looking DOWN: nose moves closer to chin, pitchRatio increases.
+	const pitch = (pitchRatio - 0.8) * 45
+
+	return { yaw, pitch }
+}
+
 export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: FaceCameraProps) {
 	const videoRef = useRef<HTMLVideoElement>(null)
 	const streamRef = useRef<MediaStream | null>(null)
@@ -54,7 +108,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 	// 'success'  = vừa chụp xong (flash ✓ trong 500ms)
 	const [stableState, setStableState] = useState<'idle' | 'filling' | 'success'>('idle')
 
-	const capturedBlobs = useRef<Blob[]>([])
+	const capturedDescriptors = useRef<number[][]>([])
 
 	// Rolling buffer góc Yaw (dùng ref để tránh re-render mỗi frame)
 	const angleBufferRef = useRef<number[]>([])
@@ -78,6 +132,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 				await Promise.all([
 					faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
 					faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+					faceapi.nets.faceRecognitionNet.loadFromUri('/models')
 				])
 				setModelsLoaded(true)
 				setMessage('Vui lòng đưa mặt vào giữa vòng tròn.')
@@ -116,40 +171,20 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 		}
 	}, [modelsLoaded])
 
-	// ─── 3. Chụp snapshot chất lượng cao ────────────────────────────────────
-	const captureSnapshot = async (): Promise<Blob | null> => {
-		return new Promise((resolve) => {
-			if (!videoRef.current) { resolve(null); return }
-			const canvas = document.createElement('canvas')
-			canvas.width = 480
-			canvas.height = 360
-			const ctx = canvas.getContext('2d')
-			if (ctx) {
-				ctx.drawImage(videoRef.current, 0, 0, 480, 360)
-				canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92)
-			} else {
-				resolve(null)
-			}
-		})
-	}
 
-	// ─── 4. Kết thúc: gửi tất cả blob về parent ─────────────────────────────
-	const finishCapture = useCallback(async () => {
-		if (!videoRef.current || isCapturing) return
+	// ─── 4. Kết thúc: gửi tất cả vector về parent ───────────────────────────
+	const finishCapture = useCallback(async (finalDescriptor: number[]) => {
+		if (isCapturing) return
 		setIsCapturing(true)
-		setMessage('Đang gửi dữ liệu khuôn mặt...')
+		setMessage('Đang xử lý AI nhận diện khuôn mặt...')
 
-		const finalBlob = await captureSnapshot()
-		if (finalBlob) {
-			capturedBlobs.current.push(finalBlob)
+		capturedDescriptors.current.push(finalDescriptor)
 
-			if (streamRef.current) {
-				streamRef.current.getTracks().forEach(track => track.stop())
-			}
-
-			setMessage('Đang xử lý AI nhận diện khuôn mặt...')
-			onCapture(capturedBlobs.current)
+		if (streamRef.current) {
+			streamRef.current.getTracks().forEach(track => track.stop())
 		}
+
+		onCapture(capturedDescriptors.current)
 	}, [isCapturing, onCapture])
 
 	// ─── 5. Vòng lặp phát hiện góc mặt + Stable Frame Detection ─────────────
@@ -168,7 +203,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 				const detection = await faceapi.detectSingleFace(
 					videoRef.current,
 					new faceapi.TinyFaceDetectorOptions()
-				).withFaceLandmarks()
+				).withFaceLandmarks().withFaceDescriptor()
 
 				if (!detection) {
 					// Mặt biến mất → reset buffer
@@ -178,11 +213,10 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 					return
 				}
 
-				const angle = (detection.detection as any).angle || (detection as any).angle
-				if (!angle) { processingRef.current = false; return }
+				const landmarks = detection.landmarks
+				if (!landmarks) { processingRef.current = false; return }
 
-				const yaw   = angle.yaw   || 0
-				const pitch = angle.pitch || 0
+				const { yaw, pitch } = estimatePose(landmarks)
 
 				const currentIndex = stepIndexRef.current
 				const currentStep  = STEPS[currentIndex]
@@ -191,8 +225,10 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 				const poseOk = currentStep.check(yaw, pitch)
 
 				if (!poseOk) {
-					// Sai góc → xóa buffer hoàn toàn
-					angleBufferRef.current = []
+					// Sai góc → giảm bớt phần tử cũ thay vì xóa hoàn toàn để tránh giật cục/mất công sức tích lũy
+					if (angleBufferRef.current.length > 0) {
+						angleBufferRef.current.shift()
+					}
 					setStableState('idle')
 					processingRef.current = false
 					return
@@ -228,11 +264,11 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 				setTimeout(() => setStableState('idle'), 500) // Flash ✓ trong 500ms
 
 				const nextStep = currentIndex + 1
+				const currentDescriptor = Array.from(detection.descriptor)
 
 				if (nextStep < STEPS.length) {
-					// Bước trung gian: chụp và chuyển sang bước tiếp theo
-					const blob = await captureSnapshot()
-					if (blob) capturedBlobs.current.push(blob)
+					// Bước trung gian: lưu vector và chuyển sang bước tiếp theo
+					capturedDescriptors.current.push(currentDescriptor)
 
 					setStepIndex(nextStep)
 					setMessage(STEPS[nextStep].label)
@@ -240,7 +276,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 					// Bước cuối cùng
 					setStepIndex(nextStep)
 					setMessage('Hoàn thành! Đang xử lý khuôn mặt...')
-					await finishCapture()
+					await finishCapture(currentDescriptor)
 				}
 				// ─────────────────────────────────────────────────────────────
 
@@ -249,7 +285,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 			} finally {
 				processingRef.current = false
 			}
-		}, 150) // 150ms/frame ≈ ~6-7 fps để đủ nhanh mà không quá tải
+		}, 100) // 100ms/frame ≈ ~10 fps để tăng tốc phản hồi và nhận dạng mượt mà hơn
 
 		return () => clearInterval(interval)
 	}, [modelsLoaded, isCapturing, finishCapture, STEPS])
@@ -258,6 +294,11 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 	const progressPercent = stepIndex === 0 ? 0 : (stepIndex / STEPS.length) * 100
 	const numDashes = 72
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 4ca94b062b9301fe5b13b37707bd965d7567407d
 	return (
 		<div className="fixed inset-0 z-[9999] flex flex-col bg-black text-white">
 			{/* Top Bar */}

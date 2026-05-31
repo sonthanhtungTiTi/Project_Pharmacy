@@ -12,6 +12,9 @@ const loadFaceModels = async () => {
 			faceapi = require('@vladmandic/face-api/dist/face-api.node-wasm.js')
 			// Monkey patch môi trường Node để sử dụng canvas như trong trình duyệt
 			faceapi.env.monkeyPatch({ Canvas, Image, ImageData })
+			
+			// Await TF backend to be ready
+			await faceapi.tf.ready()
 		}
 
 		// Khởi tạo backend WebAssembly
