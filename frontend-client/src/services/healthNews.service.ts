@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3000/api/client'
+const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/client`
 
 export interface HealthNewsBlock {
 	newsId: string
