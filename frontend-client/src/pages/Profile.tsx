@@ -156,10 +156,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 	)
 
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 9e9fbe15950d2c09cc70f0a2bdb58093fb9b5c66
 	const handleSelectOrder = async (orderId: string, fallbackOrders?: OrderData[]) => {
 		if (!orderId) {
 			return
