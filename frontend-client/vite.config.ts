@@ -11,11 +11,15 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0', // <--- Thêm dòng này để chạy trên IP VPS
+    port: 5173,
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
   },
   preview: {
+    host: '0.0.0.0', // <--- Thêm luôn ở đây nếu bạn dùng lệnh npm run preview
+    port: 5173,
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },

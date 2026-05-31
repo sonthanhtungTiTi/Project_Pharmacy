@@ -1,6 +1,7 @@
 const User = require('../../models/user.model')
 const { extractDescriptor, computeDistance, isMatch } = require('../ai/face.service')
 const jwt = require('jsonwebtoken')
+const chatService = require('../chat/chat.service')
 
 const createAccessToken = (user) => {
 	const jwtSecret = process.env.JWT_SECRET || 'dev-secret-change-me'
@@ -234,9 +235,11 @@ const loginWithFaceId = async (identity, imageBuffers) => {
 		throw error
 	}
 
-	// Cập nhật thời gian login
 	user.lastLoginAt = new Date()
 	await user.save()
+
+	// Clear old chat history upon new login session
+	await chatService.clearClientChat(user._id)
 
 	return {
 		accessToken: createAccessToken(user),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Socket } from 'socket.io-client'
-import { Bot, Headset, ImagePlus, Loader2, MessageCircle, Send, UserRound, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { Bot, Headset, ImagePlus, Loader2, MessageCircle, Send, UserRound, X, ZoomIn, ZoomOut, Video } from 'lucide-react'
 import {
 	ChatApiError,
 	getMyChatConversation,
@@ -558,6 +558,27 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 		}
 	}
 
+  const handleInitiateCall = useCallback(() => {
+    if (!conversation) {
+      alert('Không tìm thấy phiên tư vấn.');
+      return;
+    }
+    
+    if (!conversation.assignedStaffId) {
+      alert('Vui lòng đợi nhân viên tham gia hỗ trợ trước khi gọi điện.');
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('client:initiate-consultation-call', {
+      detail: {
+        staffId: conversation.assignedStaffId,
+        staffName: conversation.assignedStaff?.fullName || 'Dược sĩ tư vấn',
+        callType: 'video',
+        consultationId: conversation.id
+      }
+    }));
+  }, [conversation]);
+
 	const statusMeta = useMemo(() => {
 		switch (conversation?.status) {
 			case 'human_pending':
@@ -791,6 +812,15 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 								>
 									<ImagePlus className="h-4 w-4" />
 								</button>
+          <button
+            type="button"
+            onClick={handleInitiateCall}
+            disabled={loading || sending || uploadingImage || !conversation}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600 text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-purple-300"
+            aria-label="Video call"
+          >
+            <Video className="h-4 w-4" />
+          </button>
 								<input
 									type="text"
 									value={draft}
@@ -799,6 +829,25 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 										if (event.key === 'Enter') {
 											event.preventDefault()
 											void handleSendMessage()
+										}
+									}}
+									onPaste={(event) => {
+										const items = event.clipboardData?.items
+										if (items) {
+											for (let i = 0; i < items.length; i++) {
+												if (items[i].type.indexOf('image') !== -1) {
+													const file = items[i].getAsFile()
+													if (file) {
+														if (imagePreview) URL.revokeObjectURL(imagePreview)
+														const previewUrl = URL.createObjectURL(file)
+														setImageFile(file)
+														setImagePreview(previewUrl)
+														setError(null)
+														event.preventDefault()
+														break
+													}
+												}
+											}
 										}
 									}}
 									placeholder="Nhập noi dung can ho tro..."

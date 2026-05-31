@@ -96,7 +96,7 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 )
 
 // Indexes for role-based queries

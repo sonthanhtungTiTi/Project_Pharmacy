@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import io, { type Socket } from 'socket.io-client'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPhone, faUsers } from '@fortawesome/free-solid-svg-icons'
+import { faPhone, faUsers, faVideo } from '@fortawesome/free-solid-svg-icons'
 import adminUserService from '../services/admin-user.service'
 import type { AdminUserItem } from '../services/admin-user.service'
+import { useAuthStore } from '../stores/authStore'
 import adminChatService, {
 	type ChatConversation,
 	type ChatConversationListItem,
@@ -83,6 +84,63 @@ const formatDateTime = (value: string) => {
 	})
 }
 
+const toCurrencyVnd = (value?: number) => {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return ''
+	return `${Math.round(value).toLocaleString('vi-VN')} VND`
+}
+
+const normalizeImageUrl = (value: unknown): string => {
+	if (!value) return ''
+	if (Array.isArray(value)) {
+		const first = value.find((item) => typeof item === 'string' && item.trim())
+		return typeof first === 'string' ? first.trim() : ''
+	}
+	if (typeof value === 'string') {
+		const trimmed = value.trim()
+		if (!trimmed) return ''
+		if (trimmed.startsWith('data:')) return trimmed
+		if (trimmed.startsWith('[')) {
+			try {
+				const parsed = JSON.parse(trimmed)
+				return normalizeImageUrl(parsed)
+			} catch {}
+		}
+		if (trimmed.includes(',')) {
+			const first = trimmed.split(',').map((item) => item.trim()).find(Boolean)
+			return first || ''
+		}
+		return trimmed
+	}
+	return ''
+}
+
+const parseProductSuggestions = (message: ChatMessage) => {
+	const meta = message.meta as { productSuggestions?: unknown }
+	if (!Array.isArray(meta?.productSuggestions)) return []
+
+	const parsedItems = meta.productSuggestions.map((item) => {
+		if (!item || typeof item !== 'object') return null
+		const candidate = item as Record<string, unknown>
+		const id = typeof candidate.id === 'string' ? candidate.id : ''
+		const productName = typeof candidate.productName === 'string' ? candidate.productName : ''
+		if (!id || !productName) return null
+		return {
+			id,
+			productName,
+			imageUrl: normalizeImageUrl(candidate.imageUrl) || undefined,
+			price: typeof candidate.price === 'number' ? candidate.price : undefined,
+			productUrl: typeof candidate.productUrl === 'string' ? candidate.productUrl : undefined,
+		}
+	})
+	return parsedItems.filter((item) => item !== null) as Array<{
+		id: string
+		productName: string
+		imageUrl?: string
+		price?: number
+		productUrl?: string
+	}>
+}
+
 const getMessageImageUrl = (message: ChatMessage) => {
   const meta = (message.meta || {}) as Record<string, unknown>
   const raw = meta.imageUrl || meta.image
@@ -98,7 +156,10 @@ const toConversationListItem = (
 })
 
 export default function Support() {
+  const { token, isAuthenticated } = useAuthStore()
   const [socket, setSocket] = useState<Socket | null>(null)
+  const socketRef = useRef<Socket | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const [currentUserName, setCurrentUserName] = useState('Nhân viên')
 	const [customers, setCustomers] = useState<AdminUserItem[]>([])
 	const [loadingCustomers, setLoadingCustomers] = useState(true)
@@ -144,17 +205,25 @@ export default function Support() {
 
   useEffect(() => {
     const userRaw = localStorage.getItem('adminUser')
-    if (userRaw) {
-      try {
-        const parsed = JSON.parse(userRaw) as { fullName?: string; name?: string; email?: string }
-        setCurrentUserName(parsed.fullName || parsed.name || parsed.email || 'Nhân viên')
-      } catch {
-        setCurrentUserName('Nhân viên')
-      }
+    if (!userRaw) {
+      return
     }
 
-    const token = localStorage.getItem('adminAccessToken')
-    if (!token) {
+    try {
+      const parsed = JSON.parse(userRaw) as { fullName?: string; name?: string; email?: string }
+      setCurrentUserName(parsed.fullName || parsed.name || parsed.email || 'Nhân viên')
+    } catch {
+      setCurrentUserName('Nhân viên')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
+      setSocket(null)
       return
     }
 
@@ -163,17 +232,90 @@ export default function Support() {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
-      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      transports: ['polling', 'websocket'],
+      upgrade: true,
+      secure: SOCKET_URL.startsWith('https'),
     })
 
+    const handleConnect = () => {
+      const transportName = (newSocket as any).io?.engine?.transport?.name || 'unknown'
+      console.log('[Socket] Connected!', newSocket.id, 'transport:', transportName)
+      setChatError(null)
+    }
+    const handleDisconnect = (reason: string) => {
+      console.warn('[Socket] Disconnected:', reason)
+    }
+    const handleConnectError = (err: Error) => {
+      console.error('[Socket] Connect error:', {
+        message: err?.message,
+        cause: (err as any)?.cause,
+      })
+    }
+    const handleUpgrade = (transport: string) => {
+      console.log('[Socket] Upgraded to:', transport)
+    }
+
+    newSocket.on('connect', handleConnect)
+    newSocket.on('disconnect', handleDisconnect)
+    newSocket.on('connect_error', handleConnectError)
+    newSocket.on('upgrade', handleUpgrade)
+
+    socketRef.current = newSocket
     setSocket(newSocket)
 
     return () => {
+      newSocket.off('connect', handleConnect)
+      newSocket.off('disconnect', handleDisconnect)
+      newSocket.off('connect_error', handleConnectError)
+      newSocket.off('upgrade', handleUpgrade)
       newSocket.disconnect()
+      if (socketRef.current === newSocket) {
+        socketRef.current = null
+      }
       setSocket(null)
     }
-  }, [])
+  }, [isAuthenticated, token])
+
+  const ensureSocketConnected = useCallback(async () => {
+    if (!socket) {
+      throw new Error('Mất kết nối realtime')
+    }
+
+    if (socket.connected) {
+      return
+    }
+
+    if (socket.disconnected) {
+      socket.connect()
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        cleanup()
+        reject(new Error('Cần kết nối realtime để gửi tin nhắn'))
+      }, 4000)
+
+      const handleConnect = () => {
+        cleanup()
+        resolve()
+      }
+
+      const handleError = (err: Error) => {
+        cleanup()
+        reject(new Error(err?.message || 'Cần kết nối realtime để gửi tin nhắn'))
+      }
+
+      const cleanup = () => {
+        window.clearTimeout(timeout)
+        socket.off('connect', handleConnect)
+        socket.off('connect_error', handleError)
+      }
+
+      socket.once('connect', handleConnect)
+      socket.once('connect_error', handleError)
+    })
+  }, [socket])
 
   const emitWithAck = useCallback(
     <T,>(eventName: string, payload: Record<string, unknown>) => {
@@ -389,6 +531,13 @@ export default function Support() {
     }
   }, [mergeConversationUpdate, selectedConversationId, socket])
 
+  // Auto-scroll to bottom when messages update
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
+
   const joinConversation = async () => {
     if (!selectedConversationId || joiningConversation) {
       return
@@ -471,9 +620,7 @@ export default function Support() {
     setMessageDraft('')
 
     try {
-      if (!socket?.connected) {
-        throw new Error('Cần kết nối realtime để gửi tin nhắn')
-      }
+      await ensureSocketConnected()
 
       const data = await emitWithAck<{ conversation: ChatConversation; message: ChatMessage }>(
         'chat:message:send',
@@ -782,37 +929,83 @@ export default function Support() {
                         key={message.id}
                         className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}
                       >
-                        <div
-                          className={`max-w-[78%] rounded-2xl px-3 py-2 shadow-sm ${
-                            isAdmin
-                              ? 'bg-green-600 text-white'
-                              : isUser
-                                ? 'bg-white text-gray-800'
-                                : 'bg-blue-600 text-white'
-                          }`}
-                        >
-                          <p className="text-sm leading-5">{message.content}</p>
-                          {imageUrl && (
-                            <button
-                              type="button"
-                              onClick={() => openImagePreview(imageUrl)}
-                              className="mt-2 block overflow-hidden rounded-lg border border-white/20"
+                        {(() => {
+                          const productSuggestions = parseProductSuggestions(message)
+                          return (
+                            <div
+                              className={`max-w-[78%] rounded-2xl px-3 py-2 shadow-sm ${
+                                isAdmin
+                                  ? 'bg-green-600 text-white'
+                                  : isUser
+                                    ? 'bg-white text-gray-800'
+                                    : 'bg-blue-600 text-white'
+                              }`}
                             >
-                              <img src={imageUrl} alt="Anh dinh kem" className="max-h-40 w-full object-cover" />
-                            </button>
-                          )}
-                          <p className={`mt-1 text-[10px] ${isAdmin || !isUser ? 'text-white/80' : 'text-gray-500'}`}>
-                            {message.senderName || (isAdmin ? currentUserName : isUser ? 'Khách hàng' : 'AI')} • {formatDateTime(message.createdAt)}
-                          </p>
-                        </div>
+                              <p className="text-sm leading-5 whitespace-pre-wrap">{message.content}</p>
+                              {imageUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => openImagePreview(imageUrl)}
+                                  className="mt-2 block overflow-hidden rounded-lg border border-white/20"
+                                >
+                                  <img src={imageUrl} alt="Anh dinh kem" className="max-h-40 w-full object-cover" />
+                                </button>
+                              )}
+                              {productSuggestions.length > 0 && (
+                                <div className="mt-3 grid gap-2.5">
+                                  {productSuggestions.map((product) => (
+                                    <div
+                                      key={`${message.id}_${product.id!}`}
+                                      className="flex items-center gap-3 rounded-xl border border-white/20 bg-black/10 p-2.5 text-left"
+                                    >
+                                      {product.imageUrl ? (
+                                        <img src={product.imageUrl} alt={product.productName} className="h-12 w-12 rounded-lg border border-white/20 object-cover bg-white" />
+                                      ) : (
+                                        <div className="h-12 w-12 rounded-lg border border-white/20 bg-white/20" />
+                                      )}
+                                      <div className="min-w-0 flex-1">
+                                        <p className="line-clamp-2 text-xs font-semibold">{product.productName}</p>
+                                        {product.price !== undefined && (
+                                          <p className="mt-0.5 text-xs font-bold text-yellow-300">{toCurrencyVnd(product.price)}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <p className={`mt-1 text-[10px] ${isAdmin || !isUser ? 'text-white/80' : 'text-gray-500'}`}>
+                                {message.senderName || (isAdmin ? currentUserName : isUser ? 'Khách hàng' : 'AI')} • {formatDateTime(message.createdAt)}
+                              </p>
+                            </div>
+                          )
+                        })()}
                       </div>
                     )
                   })
                 )}
+                <div ref={messagesEndRef} />
               </div>
 
               <div className="border-t border-gray-200 p-3">
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                        window.dispatchEvent(new CustomEvent('admin:initiate-consultation-call', {
+                            detail: {
+                                peerId: selectedConversation.clientId || (selectedConversation.client as any)?._id || selectedConversation.client?.id,
+                                peerName: selectedConversation.client?.fullName || 'Khách hàng',
+                                callType: 'video',
+                                consultationId: selectedConversation.id
+                            }
+                        }))
+                    }}
+                    disabled={selectedConversation.status === 'closed' || sendingMessage}
+                    className="h-10 w-10 shrink-0 flex items-center justify-center rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60 transition"
+                    title="Gọi Video"
+                  >
+                    <FontAwesomeIcon icon={faVideo} />
+                  </button>
                   <input
                     value={messageDraft}
                     onChange={(event) => setMessageDraft(event.target.value)}

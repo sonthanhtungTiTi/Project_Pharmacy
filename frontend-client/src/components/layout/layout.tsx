@@ -88,6 +88,7 @@ function PharmacyLayout({
 		localStorage.removeItem('clientAccessToken')
 		localStorage.removeItem('clientUser')
 		setAuthUser(null)
+		window.dispatchEvent(new Event('authChanged'))
 	}
 
 	return (

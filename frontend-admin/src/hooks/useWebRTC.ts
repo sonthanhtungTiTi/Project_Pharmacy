@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Peer, { type MediaConnection, type PeerJSOption } from 'peerjs'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import toast from 'react-hot-toast' // THÊM MỚI
 
 export type CallPhase = 'IDLE' | 'RINGING' | 'IN_CALL' | 'ENDED'
 export type RingingDirection = 'incoming' | 'outgoing' | null
@@ -102,6 +103,9 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
     const [ringingDirection, setRingingDirection] = useState<RingingDirection>(null)
     const [isPeerReady, setIsPeerReady] = useState(false)
 
+    const incomingAudioRef = useRef<HTMLAudioElement | null>(null)
+    const outgoingAudioRef = useRef<HTMLAudioElement | null>(null)
+
     const peerRef = useRef<Peer | null>(null)
     const peerReadyRef = useRef(false)
     const activeMediaCallRef = useRef<MediaConnection | null>(null)
@@ -118,6 +122,48 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
     const outgoingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const userId = useMemo(() => getUserId(user), [user])
+
+    // Khởi tạo đối tượng âm thanh
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            incomingAudioRef.current = new Audio('https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg')
+            incomingAudioRef.current.loop = true
+            
+            // Âm thanh đổ chuông chờ khi gọi đi (có thể thay link khác nếu muốn)
+            outgoingAudioRef.current = new Audio('https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg')
+            outgoingAudioRef.current.loop = true
+        }
+        return () => {
+            if (incomingAudioRef.current) {
+                incomingAudioRef.current.pause()
+                incomingAudioRef.current = null
+            }
+            if (outgoingAudioRef.current) {
+                outgoingAudioRef.current.pause()
+                outgoingAudioRef.current = null
+            }
+        }
+    }, [])
+
+    // Quản lý phát/dừng âm thanh theo trạng thái cuộc gọi
+    useEffect(() => {
+        if (phase === 'RINGING') {
+            if (ringingDirection === 'incoming') {
+                incomingAudioRef.current?.play().catch(() => console.warn('Trình duyệt chặn tự động phát âm thanh.'))
+            } else if (ringingDirection === 'outgoing') {
+                outgoingAudioRef.current?.play().catch(() => console.warn('Trình duyệt chặn tự động phát âm thanh.'))
+            }
+        } else {
+            if (incomingAudioRef.current) {
+                incomingAudioRef.current.pause()
+                incomingAudioRef.current.currentTime = 0
+            }
+            if (outgoingAudioRef.current) {
+                outgoingAudioRef.current.pause()
+                outgoingAudioRef.current.currentTime = 0
+            }
+        }
+    }, [phase, ringingDirection])
 
     const setCallPhase = useCallback((nextPhase: CallPhase) => {
         phaseRef.current = nextPhase
@@ -267,6 +313,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
                 throw new Error('Không thể truy cap microphone')
             }
 
+            // SỬA: Fallback sang voice-only và hiện toast cảnh báo
             const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
                 video: false,
@@ -275,6 +322,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
             localStreamRef.current = audioOnlyStream
             setLocalStream(audioOnlyStream)
             setIsVideoOn(false)
+            toast.error('Không thể truy cập camera, tự động chuyển sang cuộc gọi thoại.', { duration: 4000 })
             return audioOnlyStream
         }
     }, [])
@@ -354,6 +402,28 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
         return activeCallId === normalizeUserId(callId)
     }, [])
 
+    const waitForPeerReady = useCallback((timeoutMs = 8000): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            if (peerReadyRef.current) {
+                resolve()
+                return
+            }
+            const deadline = Date.now() + timeoutMs
+            const check = () => {
+                if (peerReadyRef.current) {
+                    resolve()
+                    return
+                }
+                if (Date.now() >= deadline) {
+                    reject(new Error('Peer connection chua san sang (timeout)'))
+                    return
+                }
+                setTimeout(check, 200)
+            }
+            check()
+        })
+    }, [])
+
     const initiateCall = useCallback(
         async (
             peerId: string,
@@ -370,9 +440,8 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
                 throw new Error('Can co lich tu van da xác nhận de bat dau cuoc goi')
             }
 
-            if (!peerRef.current || !peerReadyRef.current) {
-                throw new Error('Peer connection chua san sang')
-            }
+            // Chờ PeerJS sẵn sàng thay vì throw ngay
+            await waitForPeerReady(8000)
 
             try {
                 const normalizedType = normalizeCallType(type)
@@ -408,7 +477,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
                             targetUserId,
                             callType: normalizedType,
                             consultationId,
-                            callerPeerId: userId,
+                            callerPeerId: peerRef.current?.id || userId,
                             callerData: {
                                 userId,
                                 name: getUserName(user),
@@ -435,7 +504,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
                 throw error
             }
         },
-        [initializeUserMedia, resetCallState, setCallPhase, socket, startOutgoingTimeout, user, userId]
+        [initializeUserMedia, resetCallState, setCallPhase, socket, startOutgoingTimeout, user, userId, waitForPeerReady]
     )
 
     const answerCall = useCallback(async () => {
@@ -457,7 +526,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
             socket.emit(SIGNALING_EVENTS.accept, {
                 callId: callToAnswer.callId,
                 targetUserId: activeCall.targetUserId,
-                calleePeerId: userId,
+                calleePeerId: peerRef.current?.id || userId,
                 calleeData: {
                     userId,
                     name: getUserName(user),
@@ -642,7 +711,8 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
             return
         }
 
-        const peer = new Peer(userId, getPeerOptions())
+        const peerIdToUse = `${userId}_${Math.random().toString(36).substring(2, 9)}`
+        const peer = new Peer(peerIdToUse, getPeerOptions())
         peerRef.current = peer
         peerReadyRef.current = false
         setIsPeerReady(false)
@@ -656,7 +726,8 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
             void handlePeerIncomingCall(mediaCall)
         })
 
-        peer.on('error', () => {
+        peer.on('error', (err) => {
+            console.error('[PeerJS] Error:', err)
             peerReadyRef.current = false
             setIsPeerReady(false)
             if (phaseRef.current !== 'IDLE') {
@@ -704,6 +775,10 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
 
         const handleSocketDisconnect = () => {
             if (phaseRef.current !== 'IDLE') {
+                // THÊM MỚI: Báo lỗi mất mạng nếu đang IN_CALL
+                if (phaseRef.current === 'IN_CALL') {
+                    toast.error('Mất kết nối — cuộc gọi đã kết thúc', { duration: 5000 })
+                }
                 resetCallState('ENDED')
             }
         }

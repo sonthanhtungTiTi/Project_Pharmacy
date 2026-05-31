@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon --inspect index.js"
+    "start": "nodemon --inspect index.js",
+    "peer": "peer --port 9000 --path /myapp --key peerjs"
   },
   "author": "",
   "license": "ISC",
@@ -30,10 +31,12 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "nodemailer": "^6.10.1",
+    "peer": "^1.0.2",
     "qrcode": "^1.5.4",
     "sanitize-html": "^2.17.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "tesseract.js": "^7.0.0",
     "vnpay": "^2.5.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"

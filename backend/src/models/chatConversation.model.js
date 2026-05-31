@@ -62,5 +62,6 @@ const chatConversationSchema = new mongoose.Schema(
 )
 
 chatConversationSchema.index({ clientId: 1, status: 1, lastMessageAt: -1 })
+chatConversationSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 1800 })
 
 module.exports = mongoose.models.ChatConversation || mongoose.model('ChatConversation', chatConversationSchema)

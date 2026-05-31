@@ -71,17 +71,28 @@ export default function VideoCallOverlay({
     const dragOffsetRef = useRef({ x: 0, y: 0 })
     const draggingRef = useRef(false)
 
+    // SỬA: Thêm phase vào dependencies để gán lại srcObject khi UI chuyển trạng thái
     useEffect(() => {
         if (localVideoRef.current && localStream) {
             localVideoRef.current.srcObject = localStream
         }
-    }, [localStream])
+    }, [localStream, phase])
 
+    // SỬA: Thêm phase vào dependencies và xóa dòng thừa
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream
+            remoteVideoRef.current.play().catch(() => {})
         }
-    }, [remoteStream])
+    }, [remoteStream, phase])
+
+    // Cleanup video elements when call ends or resets
+    useEffect(() => {
+        if (phase === 'IDLE' || phase === 'ENDED') {
+            if (localVideoRef.current) localVideoRef.current.srcObject = null
+            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
+        }
+    }, [phase])
 
     useEffect(() => {
         if (typeof window === 'undefined') return

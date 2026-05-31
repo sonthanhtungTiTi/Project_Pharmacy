@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken')
 const mongoose = require('mongoose')
 const Consultation = require('../models/consultation.model')
+const ChatConversation = require('../models/chatConversation.model')
 const registerChatHandlers = require('./chatHandler')
 
 // Theo dõi người dùng đang online: userId -> { userId, role, name, socketIds:Set }
@@ -48,27 +49,45 @@ const validateCallPermission = async ({ consultationId, callerId, targetUserId, 
         return { ok: false, reason: 'CONSULTATION_REQUIRED' }
     }
 
-    const consultation = await fetchConsultation(consultationId)
-    if (!consultation) {
-        return { ok: false, reason: 'CONSULTATION_NOT_FOUND' }
-    }
+    let consultation = await fetchConsultation(consultationId)
+    let consultationUserId = null
+    let consultationStaffId = null
+    let isChatContext = false
 
-    if (consultation.status !== 'confirmed') {
-        return { ok: false, reason: 'CONSULTATION_NOT_CONFIRMED' }
-    }
-
-    if (!consultation.assignedStaff) {
-        return { ok: false, reason: 'CONSULTATION_NOT_ASSIGNED' }
-    }
-
-    if (!isWithinCallWindow(consultation.consultationDate)) {
-        return { ok: false, reason: 'CONSULTATION_OUT_OF_WINDOW' }
+    if (consultation) {
+        if (consultation.status !== 'confirmed') {
+            return { ok: false, reason: 'CONSULTATION_NOT_CONFIRMED' }
+        }
+        if (!consultation.assignedStaff) {
+            return { ok: false, reason: 'CONSULTATION_NOT_ASSIGNED' }
+        }
+        if (!isWithinCallWindow(consultation.consultationDate)) {
+            return { ok: false, reason: 'CONSULTATION_OUT_OF_WINDOW' }
+        }
+        if (!isAllowedCallType(consultation.consultationType, callType)) {
+            return { ok: false, reason: 'CALL_TYPE_NOT_ALLOWED' }
+        }
+        consultationUserId = normalizeUserId(consultation.userId)
+        consultationStaffId = normalizeUserId(consultation.assignedStaff)
+    } else {
+        // Fallback: Check if it's a Chat Conversation ID instead of a Consultation Booking
+        consultation = await ChatConversation.findById(consultationId).lean()
+        if (!consultation) {
+            return { ok: false, reason: 'CONSULTATION_NOT_FOUND' }
+        }
+        if (consultation.status !== 'human') {
+            return { ok: false, reason: 'CONSULTATION_NOT_CONFIRMED' }
+        }
+        if (!consultation.assignedStaffId) {
+            return { ok: false, reason: 'CONSULTATION_NOT_ASSIGNED' }
+        }
+        isChatContext = true
+        consultationUserId = normalizeUserId(consultation.clientId)
+        consultationStaffId = normalizeUserId(consultation.assignedStaffId)
     }
 
     const normalizedCallerId = normalizeUserId(callerId)
     const normalizedTargetId = normalizeUserId(targetUserId)
-    const consultationUserId = normalizeUserId(consultation.userId)
-    const consultationStaffId = normalizeUserId(consultation.assignedStaff)
 
     const isClientCallingStaff =
         normalizedCallerId === consultationUserId && normalizedTargetId === consultationStaffId
@@ -77,10 +96,6 @@ const validateCallPermission = async ({ consultationId, callerId, targetUserId, 
 
     if (!isClientCallingStaff && !isStaffCallingClient) {
         return { ok: false, reason: 'CONSULTATION_CALL_FORBIDDEN' }
-    }
-
-    if (!isAllowedCallType(consultation.consultationType, callType)) {
-        return { ok: false, reason: 'CALL_TYPE_NOT_ALLOWED' }
     }
 
     return {
@@ -206,6 +221,9 @@ const setupCallHandlers = (io) => {
         // ==================== 4. CALL SIGNALING FOR PEERJS ====================
         // Caller asks server to notify target user about a new incoming call.
         socket.on('call:make', async (payload = {}, callback) => {
+            console.log('[CALL-DEBUG] 4. call:make received from:', socket.userId)
+            console.log('[CALL-DEBUG] 4b. payload:', JSON.stringify(payload))
+
             const targetUserId = normalizeUserId(payload.targetUserId)
             const callId = payload.callId
             const callType = payload.callType === 'voice' ? 'voice' : 'video'
@@ -225,6 +243,8 @@ const setupCallHandlers = (io) => {
                 targetUserId,
                 callType,
             })
+
+            console.log('[CALL-DEBUG] 4c. permission:', JSON.stringify(permission))
 
             if (!permission.ok) {
                 socket.emit('call:unavailable', {
@@ -321,7 +341,7 @@ const setupCallHandlers = (io) => {
             const callId = payload.callId
             if (!targetUserId || !callId) return
 
-            releaseCallSession(callId)
+            const session = releaseCallSession(callId)
 
             socket.to(targetUserId).emit('call:declined', {
                 callId,
@@ -334,7 +354,7 @@ const setupCallHandlers = (io) => {
             const callId = payload.callId
             if (!targetUserId || !callId) return
 
-            releaseCallSession(callId)
+            const session = releaseCallSession(callId)
 
             socket.to(targetUserId).emit('call:cancelled', {
                 callId,
@@ -365,7 +385,7 @@ const setupCallHandlers = (io) => {
             const callId = payload.callId
             if (!targetUserId || !callId) return
 
-            releaseCallSession(callId)
+            const session = releaseCallSession(callId)
 
             socket.to(targetUserId).emit('call-timeout', {
                 callId,

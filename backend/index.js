@@ -7,6 +7,7 @@ const compression = require('compression')
 const morgan = require('morgan')
 const http = require('http')
 const { Server } = require('socket.io')
+const { ExpressPeerServer } = require('peer') // THÊM MỚI
 const callHandlerModule = require('./src/sockets/callHandler')
 const setupCallHandlers = callHandlerModule
 const { onlineUsers } = callHandlerModule
@@ -30,12 +31,15 @@ const server = http.createServer(app)
 const io = new Server(server, {
     cors: {
         origin: '*',
-        methods: ['GET', 'POST'],
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        credentials: false,
     },
     path: '/socket.io',
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],
     pingInterval: 30000,
     pingTimeout: 20000,
+    maxHttpBufferSize: 10e6,
+    destroyUpgrade: false, // Cực kỳ quan trọng: Ngăn Socket.io tự đóng kết nối của PeerJS
 })
 
 // Setup Socket.IO call signaling handlers for PeerJS
@@ -46,9 +50,51 @@ app.set('io', io)
 app.set('onlineUsers', onlineUsers)
 
 // Security & Performance middleware
-app.use(helmet())
+// IMPORTANT: cors() must be BEFORE ExpressPeerServer so it can handle preflight requests!
+app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    contentSecurityPolicy: false,
+}))
 app.use(compression())
 app.use(cors())
+
+// ==================== PEERJS SERVER ====================
+// PeerServer mounted on the same HTTP server.
+// path: '/myapp' must match VITE_PEER_PATH in frontend .env
+// This is the correct approach: set path in options (not via app.use mount)
+// so both HTTP routes AND WebSocket upgrades resolve correctly.
+const peerServer = ExpressPeerServer(server, {
+    debug: true,
+    path: '/myapp',
+    allow_discovery: true,
+})
+app.use(peerServer)
+peerServer.on('connection', (client) => {
+    console.log(`[PeerJS] Client connected: ${client.getId()}`)
+})
+peerServer.on('disconnect', (client) => {
+    console.log(`[PeerJS] Client disconnected: ${client.getId()}`)
+})
+// ==================== FIX WEBSOCKET CONFLICT ====================
+// Tránh lỗi "Invalid frame header" do Socket.IO và PeerJS đụng độ tranh giành sự kiện "upgrade"
+const upgradeListeners = server.listeners('upgrade').slice(0)
+server.removeAllListeners('upgrade')
+
+server.on('upgrade', (req, socket, head) => {
+    const pathname = req.url.split('?')[0]
+    if (pathname.startsWith('/socket.io')) {
+        // Cho Socket.io xử lý trực tiếp, KHÔNG cho PeerJS đụng vào
+        io.engine.handleUpgrade(req, socket, head)
+    } else if (pathname.startsWith('/myapp')) {
+        // Cho PeerJS xử lý (do destroyUpgrade=false nên Socket.io lắng nghe cũng ko sao)
+        upgradeListeners.forEach((listener) => listener(req, socket, head))
+    } else {
+        socket.destroy()
+    }
+})
+
+
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
@@ -94,8 +140,15 @@ const startServer = async () => {
         // Use server.listen instead of app.listen for Socket.IO support
         server.listen(port, () => {
             console.log(`Server is running on port ${port}`)
-            console.log(`Socket.IO server is running`)
+            console.log(`Socket.IO server is running on path /socket.io`)
+            console.log(`Socket.IO transports: polling, websocket`)
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
+        })
+
+        // Socket.IO global middleware logging
+        io.use((socket, next) => {
+            console.log(`[Socket.IO] Attempting connection from ${socket.handshake.address}`)
+            next()
         })
 
         // Khởi động background jobs

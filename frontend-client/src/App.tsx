@@ -112,11 +112,26 @@ function App() {
 
   const [user, setUser] = useState(getUserInfo())
 
+  useEffect(() => {
+    const handleAuthChanged = () => {
+      setUser(getUserInfo())
+    }
+    window.addEventListener('authChanged', handleAuthChanged)
+    return () => {
+      window.removeEventListener('authChanged', handleAuthChanged)
+    }
+  }, [getUserInfo])
+
   // Initialize Socket.IO
   useEffect(() => {
     const token = localStorage.getItem('clientAccessToken')
     if (!token) {
       console.log('⚠️  No token found - skipping socket connection')
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+        setSocket(null)
+      }
       return
     }
 
@@ -129,24 +144,33 @@ function App() {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
-      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      transports: ['polling', 'websocket'],
+      upgrade: true,
+      secure: SOCKET_URL.startsWith('https'),
     })
 
     newSocket.on('connect', () => {
-      console.log('✅ Socket connected:', newSocket.id)
+      console.log('✅ Socket connected:', newSocket.id, 'transport:', (newSocket as any).io?.engine?.transport?.name)
     })
 
     newSocket.on('disconnect', (reason) => {
-      console.log('❌ Socket disconnected:', reason)
+      console.warn('❌ Socket disconnected:', reason)
     })
 
     newSocket.on('connect_error', (error) => {
-      console.error('❌ Socket connection error:', error)
+      console.error('❌ Socket connection error:', {
+        message: error?.message,
+        cause: (error as any)?.cause,
+      })
     })
 
     newSocket.on('error', (error) => {
-      console.error('❌ Socket error:', error)
+      console.error('❌ Socket error event:', error)
+    })
+
+    newSocket.on('upgrade', (transport) => {
+      console.log('📊 Socket upgraded to:', transport)
     })
 
     newSocket.on('prescription_approved', () => {
@@ -165,7 +189,7 @@ function App() {
       newSocket.disconnect()
       socketRef.current = null
     }
-  }, [getUserInfo])
+  }, [getUserInfo, user?.id, user?._id, user?.userId])
 
   // ==================== PEERJS CALL HOOK ====================
   const [callDuration, setCallDuration] = useState(0)
@@ -236,6 +260,9 @@ function App() {
       const staffAvatar = detail.staffAvatar || undefined
       const callType = detail.callType === 'voice' ? 'voice' : 'video'
       const consultationId = String(detail.consultationId || '')
+
+      console.log('[CALL-DEBUG] 1. Event received:', detail)
+      console.log('[CALL-DEBUG] 1b. staffId:', staffId, '| consultationId:', consultationId)
 
       if (!staffId || !consultationId) {
         return

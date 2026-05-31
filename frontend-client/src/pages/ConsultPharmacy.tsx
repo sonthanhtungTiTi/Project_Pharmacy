@@ -430,6 +430,15 @@ function ConsultationDetail({
 							{callType === 'voice' ? 'Gọi thoại' : 'Gọi video'}
 						</button>
 					</div>
+
+					{/* Debug button for testing call (dev) */}
+					<button
+						type="button"
+						onClick={handleStartCall}
+						className="mt-2 rounded-xl bg-gray-600 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700"
+					>
+						Gọi test (dev)
+					</button>
 				</div>
 			)}
 

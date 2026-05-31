@@ -1,5 +1,6 @@
 const axios = require('axios')
 const mongoose = require('mongoose')
+const Tesseract = require('tesseract.js')
 
 const ChatConversation = require('../../models/chatConversation.model')
 const ChatMessage = require('../../models/chatMessage.model')
@@ -7,10 +8,10 @@ const Product = require('../../models/product.model')
 const Order = require('../../models/order.model')
 const User = require('../../models/user.model')
 
-const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434/api/generate'
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b'
-const OLLAMA_QUERY_API_KEY = process.env.OLLAMA_QUERY_API_KEY || ''
-const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 30000)
+const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions'
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat'
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
+const DEEPSEEK_TIMEOUT_MS = Number(process.env.DEEPSEEK_TIMEOUT_MS || 30000)
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 100
@@ -229,7 +230,7 @@ const cleanJsonString = (text = '') => {
     return value
 }
 
-const parseOllamaJson = (rawText, fallback = {}) => {
+const parseAIJson = (rawText, fallback = {}) => {
     const cleaned = cleanJsonString(rawText)
     try {
         return JSON.parse(cleaned)
@@ -292,32 +293,38 @@ const serializeMessage = (doc) => ({
 const createSessionId = (clientId) =>
     `conv_${String(clientId)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
-const callOllama = async ({ prompt, system = '', temperature = 0.2, format } = {}) => {
+const callDeepSeek = async ({ prompt, system = '', temperature = 0.2, format } = {}) => {
     const payload = {
-        model: OLLAMA_MODEL,
-        prompt,
-        system,
+        model: DEEPSEEK_MODEL,
+        messages: [],
         stream: false,
-        options: {
-            temperature,
-        },
+        temperature,
     }
 
-    if (format !== undefined && format !== null && String(format).trim() !== '') {
-        payload.format = format
+    if (system) {
+        payload.messages.push({ role: 'system', content: system })
+    }
+    payload.messages.push({ role: 'user', content: prompt })
+
+    if (format === 'json') {
+        payload.response_format = { type: 'json_object' }
     }
 
-    const headers = {}
-    if (OLLAMA_QUERY_API_KEY) {
-        headers.Authorization = `Bearer ${OLLAMA_QUERY_API_KEY}`
+    const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
     }
 
-    const response = await axios.post(OLLAMA_API_URL, payload, {
-        timeout: OLLAMA_TIMEOUT_MS,
-        headers,
-    })
-
-    return String(response?.data?.response || '').trim()
+    try {
+        const response = await axios.post(DEEPSEEK_API_URL, payload, {
+            timeout: DEEPSEEK_TIMEOUT_MS,
+            headers,
+        })
+        return String(response?.data?.choices?.[0]?.message?.content || '').trim()
+    } catch (error) {
+        console.error('DeepSeek API Error:', error?.response?.data || error.message)
+        throw error
+    }
 }
 
 const findOrCreateActiveConversation = async (clientId) => {
@@ -670,7 +677,10 @@ const extractSymptomKeyword = (text) => {
 
     const matched = [...SYMPTOM_KEYWORDS]
         .sort((a, b) => b.length - a.length)
-        .find((keyword) => normalized.includes(normalizeText(keyword)))
+        .find((keyword) => {
+            const regex = new RegExp(`\\b${normalizeText(keyword)}\\b`, 'i');
+            return regex.test(normalized);
+        })
     if (matched) {
         return matched
     }
@@ -823,7 +833,7 @@ const normalizeReadOnlyQueryPlan = (rawPlan) => {
     }
 }
 
-const buildReadOnlyQueryPlanWithOllama = async ({ message, symptomKeyword = '' }) => {
+const buildReadOnlyQueryPlanWithAI = async ({ message, symptomKeyword = '' }) => {
     const systemPrompt = [
         'Bạn là AI tạo MongoDB query cho collection products trong nhà thuốc.',
         'Chỉ được trả về JSON hợp lệ, TUYỆT ĐỐI không có markdown.',
@@ -841,14 +851,14 @@ const buildReadOnlyQueryPlanWithOllama = async ({ message, symptomKeyword = '' }
         'Return JSON only.',
     ].join('\n\n')
 
-    const raw = await callOllama({
+    const raw = await callDeepSeek({
         prompt,
         system: systemPrompt,
         temperature: 0,
         format: 'json',
     })
 
-    return parseOllamaJson(raw, {})
+    return parseAIJson(raw, {})
 }
 
 const executeReadOnlyProductQueryPlan = async (rawPlan) => {
@@ -1063,7 +1073,7 @@ const searchProductsForConsultation = async ({ message, symptomKeyword }) => {
     let aiPlan = null
 
     try {
-        aiPlan = await buildReadOnlyQueryPlanWithOllama({ message, symptomKeyword })
+        aiPlan = await buildReadOnlyQueryPlanWithAI({ message, symptomKeyword })
         aiDocs = await executeReadOnlyProductQueryPlan(aiPlan)
     } catch {
         aiDocs = []
@@ -1088,6 +1098,7 @@ const classifyMessageFallback = (message) => {
     if (hasSocial && !hasConsult && !wantsHuman) {
         return {
             type: 'social',
+            isOffTopic: false, // THÊM MỚI
             symptomKeyword: '',
             reply: 'Chào mừng bạn đến với nhà thuốc T&Q. Nếu cần tư vấn sức khỏe, mình luôn sẵn sàng hỗ trợ.',
             needsHuman: false,
@@ -1096,6 +1107,7 @@ const classifyMessageFallback = (message) => {
 
     return {
         type: 'consult',
+        isOffTopic: false, // THÊM MỚI
         symptomKeyword,
         reply: '',
         needsHuman: wantsHuman,
@@ -1122,12 +1134,15 @@ const classifyClientMessage = async ({ message, history = [] }) => {
         'Tin nhắn: "giá 1 hộp là bao nhiêu" -> {"type":"consult", "symptomKeyword":"giá", "reply":"", "needsHuman":false}',
         'Tin nhắn: "thuốc này uống trước hay sau khi ăn" -> {"type":"consult", "symptomKeyword":"cách dùng", "reply":"", "needsHuman":false}',
 
-        '--- NHÓM 2: KHAI BÁO TRIỆU CHỨNG, TÌM KIẾM SẢN PHẨM (needsHuman: false) ---',
+        '--- NHÓM 2: KHAI BÁO TRIỆU CHỨNG, TÌM KIẾM SẢN PHẨM HOẶC ĐÍNH KÈM ẢNH (needsHuman: false) ---',
         'Lưu ý: Nếu khách VỪA CHÀO VỪA KHAI BỆNH, phải ưu tiên bắt bệnh. Bóc tách từ khóa cốt lõi vào symptomKeyword.',
+        'Lưu ý quan trọng về Ảnh: Nếu tin nhắn chứa thẻ [Văn bản quét được từ ảnh đính kèm: "..."], hãy trích xuất TÊN THUỐC hoặc TRIỆU CHỨNG từ đoạn văn bản đó để đưa vào symptomKeyword.',
         'Tin nhắn: "tôi bị đau đầu sổ mũi từ hôm qua" -> {"type":"consult", "symptomKeyword":"đau đầu sổ mũi", "reply":"", "needsHuman":false}',
         'Tin nhắn: "chào bạn, bé nhà mình bị tiêu chảy" -> {"type":"consult", "symptomKeyword":"tiêu chảy", "reply":"", "needsHuman":false}',
         'Tin nhắn: "shop có bán vitamin c không" -> {"type":"consult", "symptomKeyword":"vitamin c", "reply":"", "needsHuman":false}',
         'Tin nhắn: "cho mình hỏi mua thuốc trị mụn nhọt" -> {"type":"consult", "symptomKeyword":"trị mụn nhọt", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "tui muốn mua thuốc trong ảnh [Văn bản quét được từ ảnh đính kèm: "Mezapulgit 3g"]" -> {"type":"consult", "symptomKeyword":"Mezapulgit", "reply":"", "needsHuman":false}',
+        'Tin nhắn: "[Văn bản quét được từ ảnh đính kèm: "Panadol Extra Paracetamol 500mg"]" -> {"type":"consult", "symptomKeyword":"Panadol Extra", "reply":"", "needsHuman":false}',
 
         '--- NHÓM 3: ĐÒI GẶP NGƯỜI THẬT HOẶC ĐỒNG Ý KẾT NỐI (needsHuman: true) ---',
         'Tin nhắn: "cho tôi gặp nhân viên tư vấn" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
@@ -1139,10 +1154,16 @@ const classifyClientMessage = async ({ message, history = [] }) => {
         'Tin nhắn: "uống thuốc vào bị nổi mẩn đỏ khắp người" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
         'Tin nhắn: "shop giao sai thuốc cho tôi rồi" -> {"type":"social", "symptomKeyword":"", "reply":"", "needsHuman":true}',
 
-        '--- NHÓM 5: GIAO TIẾP, HỎI ĐÁP NGOÀI LỀ (needsHuman: false) ---',
+        '--- NHÓM 5: GIAO TIẾP, HỎI ĐÁP LIÊN QUAN ĐẾN NHÀ THUỐC (needsHuman: false) ---',
         'Tin nhắn: "chào shop" -> {"type":"social", "symptomKeyword":"", "reply":"Chào bạn! Mình là Dược sĩ AI của T&Q. Bạn cần tìm thuốc hay tư vấn sức khỏe ạ?", "needsHuman":false}',
         'Tin nhắn: "cảm ơn bạn nhiều" -> {"type":"social", "symptomKeyword":"", "reply":"Dạ không có chi ạ! Chúc bạn thật nhiều sức khỏe. Nếu cần gì thêm cứ nhắn mình nhé!", "needsHuman":false}',
-        'Tin nhắn: "phí ship thế nào vậy" -> {"type":"social", "symptomKeyword":"", "reply":"Dạ bên mình freeship cho đơn hàng từ 150k trở lên ạ.", "needsHuman":false}'
+        'Tin nhắn: "phí ship thế nào vậy" -> {"type":"social", "symptomKeyword":"", "reply":"Dạ bên mình freeship cho đơn hàng từ 150k trở lên ạ.", "needsHuman":false}',
+
+        '--- NHÓM 6: CÁC CÂU HỎI HOÀN TOÀN NGOÀI LỀ, KHÔNG LIÊN QUAN ĐẾN Y TẾ (needsHuman: false) ---',
+        'Lưu ý: Bất kỳ câu hỏi nào KHÔNG thuộc 5 nhóm trên (như toán học, thời tiết, lập trình, nấu ăn, v.v.), BẮT BUỘC phải dùng chung 1 câu trả lời từ chối.',
+        'Tin nhắn: "công thức tính tổng" -> {"type":"social", "symptomKeyword":"", "reply":"Xin lỗi, chatbot chỉ có thể hỗ trợ những câu hỏi liên quan đến thuốc và sức khỏe.", "needsHuman":false}',
+        'Tin nhắn: "thời tiết hôm nay thế nào" -> {"type":"social", "symptomKeyword":"", "reply":"Xin lỗi, chatbot chỉ có thể hỗ trợ những câu hỏi liên quan đến thuốc và sức khỏe.", "needsHuman":false}',
+        'Tin nhắn: "cách làm bánh kem" -> {"type":"social", "symptomKeyword":"", "reply":"Xin lỗi, chatbot chỉ có thể hỗ trợ những câu hỏi liên quan đến thuốc và sức khỏe.", "needsHuman":false}'
     ].join(' ');
     const prompt = [
         `History:\n${compactHistory || '(empty)'}`,
@@ -1151,13 +1172,13 @@ const classifyClientMessage = async ({ message, history = [] }) => {
     ].join('\n\n')
 
     try {
-        const raw = await callOllama({
+        const raw = await callDeepSeek({
             prompt,
             system: systemPrompt,
             temperature: 0,
             format: 'json',
         })
-        const parsed = parseOllamaJson(raw, {})
+        const parsed = parseAIJson(raw, {})
 
         const type = String(parsed.type || '').trim().toLowerCase()
         const normalizedType = type === 'social' ? 'social' : type === 'consult' ? 'consult' : fallback.type
@@ -1181,18 +1202,21 @@ const classifyClientMessage = async ({ message, history = [] }) => {
             needsHuman = true;
         }
         if (normalizedType === 'social') {
+            const isOffTopic = reply.includes('chỉ có thể hỗ trợ') // THÊM MỚI
             return {
                 type: 'social',
+                isOffTopic, // THÊM MỚI
                 symptomKeyword: '',
-                reply:
-                    reply ||
-                    'Chào mừng bạn đến với nhà thuốc T&Q. Nếu cần tư vấn sức khỏe, mình luôn sẵn sàng hỗ trợ.',
+                reply: isOffTopic
+                    ? 'Mình chỉ có thể trả lời các vấn đề về tư vấn mua thuốc.' // SỬA
+                    : (reply || 'Chào mừng bạn đến với nhà thuốc T&Q. Nếu cần tư vấn sức khỏe, mình luôn sẵn sàng hỗ trợ.'), // SỬA
                 needsHuman,
             }
         }
 
         return {
             type: 'consult',
+            isOffTopic: false, // THÊM MỚI
             symptomKeyword: symptomKeyword || fallback.symptomKeyword,
             reply: '',
             needsHuman,
@@ -1202,9 +1226,13 @@ const classifyClientMessage = async ({ message, history = [] }) => {
     }
 }
 
+// THÊM MỚI
+const withDisclaimer = (text) =>
+    `${text}\n\n⚠️ Nên tham khảo ý kiến chuyên gia khi dùng.`
+
 const generateConsultReply = async ({ message, symptomKeyword, products }) => {
     if (!Array.isArray(products) || products.length === 0) {
-        return 'Xin lỗi bạn, hiện tại hệ thống chưa tìm thấy sản phẩm nào phù hợp với mô tả của bạn. Bạn có muốn kết nối với nhân viên để được hỗ trợ tìm thuốc không?'
+        return withDisclaimer('Xin lỗi bạn, hiện tại hệ thống chưa tìm thấy sản phẩm nào phù hợp với mô tả của bạn. Bạn có muốn kết nối với nhân viên để được hỗ trợ tìm thuốc không?') // SỬA
     }
 
     const summary = products
@@ -1244,24 +1272,24 @@ const generateConsultReply = async ({ message, symptomKeyword, products }) => {
     ].join('\n\n')
 
     try {
-        const text = await callOllama({
+        const text = await callDeepSeek({
             prompt,
             system: systemPrompt,
             temperature: 0.4,
         })
         const cleaned = String(text || '').trim()
         if (cleaned) {
-            return cleaned
+            return withDisclaimer(cleaned) // SỬA
         }
     } catch {
         // fallback below
     }
 
     if (symptomKeyword) {
-        return `Bạn đang gặp triệu chứng ${symptomKeyword}. Mình đã chọn một số sản phẩm phù hợp để bạn tham khảo bên dưới.`
+        return withDisclaimer(`Bạn đang gặp triệu chứng ${symptomKeyword}. Mình đã chọn một số sản phẩm phù hợp để bạn tham khảo bên dưới.`) // SỬA
     }
 
-    return 'Mình đã tìm thấy một số sản phẩm phù hợp để bạn tham khảo bên dưới.'
+    return withDisclaimer('Mình đã tìm thấy một số sản phẩm phù hợp để bạn tham khảo bên dưới.') // SỬA
 }
 
 const extractOrderCode = (text) => {
@@ -1345,29 +1373,22 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         }
     }
 
+    let ocrText = ''
     if (imageUrl) {
-        const shouldEscalate = conversation.status !== 'human' && conversation.status !== 'human_pending'
-        const updatedConversation = await touchConversation(conversation._id, {
-            status: shouldEscalate ? 'human_pending' : conversation.status,
-            lastAction: shouldEscalate ? INTENTS.CALL_HUMAN : conversation.lastAction,
-            metadata: shouldEscalate
-                ? {
-                    ...conversation.metadata,
-                    lastHumanRequestReason: 'image_upload',
-                }
-                : conversation.metadata,
-            unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1,
-        })
-
-        return {
-            conversation: serializeConversation(updatedConversation),
-            userMessage: userMessagePayload,
-            botMessage: null,
-            systemMessage: null,
-            requiresHuman: shouldEscalate,
-            action: shouldEscalate ? INTENTS.CALL_HUMAN : INTENTS.CHAT,
+        try {
+            console.log(`[OCR] Bắt đầu quét ảnh: ${imageUrl}`)
+            const { data } = await Tesseract.recognize(imageUrl, 'vie+eng')
+            ocrText = String(data.text || '').replace(/\s+/g, ' ').trim()
+            console.log(`[OCR] Kết quả: ${ocrText.slice(0, 100)}...`)
+        } catch (err) {
+            console.error('[OCR] Lỗi khi quét ảnh:', err)
         }
     }
+
+    const combinedContentForAI = [
+        normalizedContent,
+        ocrText ? `[Văn bản quét được từ ảnh đính kèm: "${ocrText}"]` : ''
+    ].filter(Boolean).join(' ')
 
     const rawHistory = await ChatMessage.find({ conversationId: conversation._id })
         .sort({ createdAt: -1 })
@@ -1376,7 +1397,7 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
     const history = rawHistory.reverse()
 
     const classification = await classifyClientMessage({
-        message: normalizedContent,
+        message: combinedContentForAI, // SỬA: Gộp cả text và chữ từ ảnh
         history,
     })
 
@@ -1401,7 +1422,9 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
             intent: INTENTS.SOCIAL_CHAT,
             action: INTENTS.CHAT,
             meta: {
-                responseCategory: 'social_chat',
+                responseCategory: classification.isOffTopic
+                    ? 'off_topic'
+                    : 'social_chat', // SỬA
             },
         })
 
@@ -1419,15 +1442,44 @@ const handleClientMessage = async ({ clientId, clientName = '', conversationId, 
         }
     }
 
-    const symptomKeyword = classification.symptomKeyword || extractSymptomKeyword(normalizedContent)
+    const symptomKeyword = classification.symptomKeyword || extractSymptomKeyword(combinedContentForAI)
+
+    // Nếu người dùng muốn tư vấn/mua thuốc nhưng chưa cung cấp từ khóa bệnh/thuốc cụ thể
+    // VD: "tôi muốn mua thuốc", "tư vấn cho tôi"
+    if (!symptomKeyword) {
+        const botDoc = await appendMessage({
+            conversationId: conversation._id,
+            senderType: 'bot',
+            content: 'Dạ, bạn đang gặp vấn đề gì về sức khỏe hoặc cần tìm cụ thể loại thuốc nào ạ? Bạn có thể mô tả chi tiết triệu chứng hoặc yêu cầu kết nối với Dược sĩ để được hỗ trợ trực tiếp nhé.',
+            intent: INTENTS.SOCIAL_CHAT,
+            action: INTENTS.CHAT,
+            meta: {
+                responseCategory: 'ask_for_details',
+            },
+        })
+
+        const updatedConversation = await touchConversation(conversation._id, {
+            unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1
+        })
+
+        return {
+            conversation: serializeConversation(updatedConversation),
+            userMessage: userMessagePayload,
+            botMessage: serializeMessage(botDoc),
+            systemMessage: null,
+            requiresHuman: false,
+            action: INTENTS.CHAT,
+        }
+    }
+
     const { plan, products } = await searchProductsForConsultation({
-        message: normalizedContent,
+        message: combinedContentForAI, // SỬA: Dùng text đã gộp
         symptomKeyword,
     })
 
     const suggestions = products.slice(0, 4)
     const consultReply = await generateConsultReply({
-        message: normalizedContent,
+        message: combinedContentForAI, // SỬA: Dùng text đã gộp
         symptomKeyword,
         products: suggestions,
     })
@@ -1554,6 +1606,20 @@ const createPrescriptionRequestMessage = async (clientId, conversationId, produc
     }
 }
 
+const clearClientChat = async (clientId) => {
+    if (!clientId) return
+    try {
+        const conversations = await ChatConversation.find({ clientId }).select('_id')
+        if (conversations.length > 0) {
+            const conversationIds = conversations.map(c => c._id)
+            await ChatMessage.deleteMany({ conversationId: { $in: conversationIds } })
+            await ChatConversation.deleteMany({ _id: { $in: conversationIds } })
+        }
+    } catch (error) {
+        console.error('Error clearing client chat:', error)
+    }
+}
+
 module.exports = {
     ChatServiceError,
     SUPPORT_ROLES,
@@ -1571,4 +1637,5 @@ module.exports = {
     handleStaffMessage,
     searchOrdersForUser,
     createPrescriptionRequestMessage,
+    clearClientChat,
 }

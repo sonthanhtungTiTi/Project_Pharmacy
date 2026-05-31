@@ -5,6 +5,7 @@ const { sendResetOtpEmail } = require('./mail.service')
 
 const User = require('../../models/user.model')
 const Otp = require('../../models/otp.model')
+const chatService = require('../chat/chat.service')
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
@@ -184,6 +185,9 @@ const loginLocalUser = async ({ phoneOrEmail, password }) => {
 
 	user.lastLoginAt = new Date()
 	await user.save()
+
+	// Clear old chat history upon new login session
+	await chatService.clearClientChat(user._id)
 
 	const accessToken = createAccessToken(user)
 
@@ -393,6 +397,9 @@ const upsertGoogleUserAndCreateToken = async (payload) => {
 		user.lastLoginAt = new Date()
 		await user.save()
 	}
+
+	// Clear old chat history upon new login session
+	await chatService.clearClientChat(user._id)
 
 	const accessToken = createAccessToken(user)
 

@@ -36,6 +36,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 	const handleAuthSuccess = (user: AuthUser, accessToken: string) => {
 		localStorage.setItem('clientAccessToken', accessToken)
 		localStorage.setItem('clientUser', JSON.stringify(user))
+		window.dispatchEvent(new Event('authChanged'))
 		toast.success('Đăng nhập thành công')
 		onAuthSuccess?.(user)
 		onClose()
