@@ -20,6 +20,26 @@ const register = async (req, res) => {
   }
 }
 
+const verifyRegisterOtp = async (req, res) => {
+  try {
+    const data = await authService.verifyRegisterOtpLocalUser(req.body)
+
+    return res.status(200).json({
+      success: true,
+      message: 'Registration verified and successful',
+      data,
+    })
+  } catch (error) {
+    const statusCode = error.statusCode || 500
+
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Verify OTP failed',
+      error: error.message,
+    })
+  }
+}
+
 const login = async (req, res) => {
   try {
     const data = await authService.loginLocalUser(req.body)
@@ -167,6 +187,7 @@ const googleLoginOrRegisterByCode = async (req, res) => {
 
 module.exports = {
   register,
+  verifyRegisterOtp,
   login,
   forgotPassword,
   verifyForgotPasswordOtp,

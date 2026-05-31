@@ -38,6 +38,4 @@ const authenticitySchema = new mongoose.Schema(
   },
 )
 
-authenticitySchema.index({ code: 1 })
-
 module.exports = mongoose.model('Authenticity', authenticitySchema)

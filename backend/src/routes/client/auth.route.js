@@ -13,11 +13,18 @@ const faceLoginLimiter = rateLimit({
 	message: { success: false, message: 'Quá nhiều lần thử, vui lòng đợi 15 phút rồi thử lại' }
 })
 
+const otpLimiter = rateLimit({
+	windowMs: 10 * 60 * 1000, 
+	max: 3,
+	message: { success: false, message: 'Bạn đã yêu cầu gửi mã OTP quá nhiều lần. Vui lòng đợi 10 phút rồi thử lại.' }
+})
+
 const router = express.Router()
 
-router.post('/register', authController.register)
+router.post('/register', otpLimiter, authController.register)
+router.post('/register/verify-otp', authController.verifyRegisterOtp)
 router.post('/login', authController.login)
-router.post('/forgot-password', authController.forgotPassword)
+router.post('/forgot-password', otpLimiter, authController.forgotPassword)
 router.post('/forgot-password/verify-otp', authController.verifyForgotPasswordOtp)
 router.post('/forgot-password/reset', authController.resetForgotPassword)
 router.put('/profile/:userId', authenticateClientJwt, authorizeSelfOrAdmin('userId'), authController.updateProfile)

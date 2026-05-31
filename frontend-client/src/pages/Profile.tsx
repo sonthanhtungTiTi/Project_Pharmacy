@@ -100,7 +100,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 	const [email, setEmail] = useState(user.email || '')
 	const [phone, setPhone] = useState(user.phone || '')
 	const [avatar, setAvatar] = useState(user.avatar || '')
-	const [address, setAddress] = useState(user.address || '')
+	const [address] = useState(user.address || '')
 	const [dateOfBirth, setDateOfBirth] = useState(toDateInputValue(user.dateOfBirth))
 	const [recipientName, setRecipientName] = useState(defaultAddress?.recipientName || user.fullName || '')
 	const [recipientPhone, setRecipientPhone] = useState(defaultAddress?.phone || user.phone || '')
@@ -154,11 +154,6 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 		() => wards.find((item) => String(item.code) === String(wardCode)) || null,
 		[wardCode, wards],
 	)
-
-	const selectedAddressText = useMemo(() => {
-		const parts = [street.trim(), selectedWard?.name || '', selectedDistrict?.name || '', selectedProvince?.name || '']
-		return parts.filter(Boolean).join(', ')
-	}, [street, selectedWard, selectedDistrict, selectedProvince])
 
 	const handleSelectOrder = async (orderId: string, fallbackOrders?: OrderData[]) => {
 		if (!orderId) {

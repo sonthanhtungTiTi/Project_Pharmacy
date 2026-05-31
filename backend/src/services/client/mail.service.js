@@ -19,53 +19,21 @@ const getTransporter = () => {
 
 const sendResetOtpEmail = async ({ toEmail, fullName, otpCode }) => {
 	const transporter = getTransporter()
-	const from = process.env.EMAIL_USER
+	const from = `"Nhà Thuốc T&Q" <${process.env.EMAIL_USER}>`
 	const html = `
-		<div style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;">
-			<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:24px 12px;">
-				<tr>
-					<td align="center">
-						<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:14px;border:1px solid #e6ebf2;padding:28px;">
-							<tr>
-								<td style="color:#0f172a;font-size:18px;font-weight:700;padding-bottom:10px;">
-									OTP khoi phuc mat khau
-								</td>
-							</tr>
-							<tr>
-								<td style="color:#334155;font-size:14px;line-height:1.6;padding-bottom:16px;">
-									Xin chao <strong>${fullName || 'ban'}</strong>,<br/>
-									He thong da nhan duoc yeu cau khoi phuc mat khau cho tai khoan:
-								</td>
-							</tr>
-							<tr>
-								<td style="padding-bottom:16px;">
-									<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;color:#1d4ed8;font-size:14px;font-weight:700;word-break:break-word;">
-										${toEmail}
-									</div>
-								</td>
-							</tr>
-							<tr>
-								<td style="color:#334155;font-size:14px;line-height:1.6;padding-bottom:10px;">
-									Ma OTP cua ban la:
-								</td>
-							</tr>
-							<tr>
-								<td style="padding-bottom:16px;">
-									<div style="text-align:center;background:#fff7ed;border:1px solid #fdba74;border-radius:12px;padding:14px;">
-										<span style="font-size:30px;letter-spacing:6px;line-height:1;color:#c2410c;font-weight:800;">${otpCode}</span>
-									</div>
-								</td>
-							</tr>
-							<tr>
-								<td style="color:#475569;font-size:13px;line-height:1.6;">
-									OTP co hieu luc trong <strong>10 phut</strong>.<br/>
-									Neu ban khong yeu cau, vui long bo qua email nay.
-								</td>
-							</tr>
-						</table>
-					</td>
-				</tr>
-			</table>
+		<div style="font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; color: #24292e; max-width: 600px; margin: 0 auto; padding: 20px;">
+			<div style="padding-bottom: 10px; border-bottom: 1px solid #e1e4e8; margin-bottom: 20px;">
+				<h2 style="margin: 0; color: #24292e; font-size: 24px;">Nhà Thuốc T&Q</h2>
+			</div>
+			<p style="font-size: 14px; line-height: 1.5;">Xin chào <strong>${fullName || 'bạn'}</strong>,</p>
+			<p style="font-size: 14px; line-height: 1.5;">Chúng tôi đã nhận được yêu cầu khôi phục mật khẩu cho tài khoản liên kết với email <strong>${toEmail}</strong>. Để tiếp tục, vui lòng nhập mã xác thực dưới đây:</p>
+			<p style="font-size: 14px; color: #586069; margin-bottom: 5px;">Mã xác thực:</p>
+			<div style="font-size: 36px; font-weight: bold; letter-spacing: 6px; padding: 10px 0; color: #0366d6;">
+				${otpCode}
+			</div>
+			<p style="font-size: 14px; line-height: 1.5; color: #586069; margin-top: 20px;">
+				Mã này có hiệu lực trong 10 phút. Nếu bạn không yêu cầu khôi phục mật khẩu, tài khoản của bạn vẫn an toàn và bạn có thể bỏ qua email này.
+			</p>
 		</div>
 	`
 
@@ -86,6 +54,44 @@ const sendResetOtpEmail = async ({ toEmail, fullName, otpCode }) => {
 	})
 }
 
+const sendRegisterOtpEmail = async ({ toEmail, fullName, otpCode }) => {
+	const transporter = getTransporter()
+	const from = `"Nhà Thuốc T&Q" <${process.env.EMAIL_USER}>`
+	const html = `
+		<div style="font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; color: #24292e; max-width: 600px; margin: 0 auto; padding: 20px;">
+			<div style="padding-bottom: 10px; border-bottom: 1px solid #e1e4e8; margin-bottom: 20px;">
+				<h2 style="margin: 0; color: #24292e; font-size: 24px;">Nhà Thuốc T&Q</h2>
+			</div>
+			<p style="font-size: 14px; line-height: 1.5;">Xin chào <strong>${fullName || 'bạn'}</strong>,</p>
+			<p style="font-size: 14px; line-height: 1.5;">Chúng tôi đã nhận được yêu cầu đăng ký tài khoản mới cho email <strong>${toEmail}</strong>. Để hoàn tất việc đăng ký, vui lòng nhập mã xác thực dưới đây:</p>
+			<p style="font-size: 14px; color: #586069; margin-bottom: 5px;">Mã xác thực:</p>
+			<div style="font-size: 36px; font-weight: bold; letter-spacing: 6px; padding: 10px 0; color: #28a745;">
+				${otpCode}
+			</div>
+			<p style="font-size: 14px; line-height: 1.5; color: #586069; margin-top: 20px;">
+				Mã này có hiệu lực trong 10 phút. Nếu bạn không yêu cầu đăng ký tài khoản, có thể ai đó đang sử dụng nhầm email của bạn. Bạn có thể an tâm bỏ qua email này.
+			</p>
+		</div>
+	`
+
+	await transporter.sendMail({
+		from,
+		to: toEmail,
+		subject: 'OTP Xac thuc dang ky - NHA THUOC T&Q ',
+		text: [
+			`Xin chao ${fullName || 'ban'},`,
+			'',
+			'OTP xac thuc dang ky cua ban la:',
+			otpCode,
+			'',
+			'OTP co hieu luc trong 10 phut.',
+			'Neu ban khong yeu cau, vui long bo qua email nay.',
+		].join('\n'),
+		html,
+	})
+}
+
 module.exports = {
 	sendResetOtpEmail,
+	sendRegisterOtpEmail,
 }

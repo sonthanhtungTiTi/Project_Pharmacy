@@ -258,11 +258,6 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 	const progressPercent = stepIndex === 0 ? 0 : (stepIndex / STEPS.length) * 100
 	const numDashes = 72
 
-	// Màu vòng tròn theo trạng thái
-	const ringColor = stableState === 'success' ? '#34C759'
-		: stableState === 'filling'  ? '#FFD60A'
-		: '#555555'
-
 	return (
 		<div className="fixed inset-0 z-[9999] flex flex-col bg-black text-white">
 			{/* Top Bar */}
