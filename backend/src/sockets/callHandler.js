@@ -103,6 +103,7 @@ const validateCallPermission = async ({ consultationId, callerId, targetUserId, 
         consultation,
         consultationUserId,
         consultationStaffId,
+        isChatContext,
     }
 }
 
@@ -151,6 +152,57 @@ const releaseCallSession = (callId) => {
     setUserBusy(session.calleeId, false)
 
     return session
+}
+
+const logCallToChat = async (io, session, status, reason = '') => {
+    if (!session || !session.isChatContext || !session.consultationId) return;
+    try {
+        const ChatMessage = require('../models/chatMessage.model');
+        const duration = session.acceptedAt ? Math.round((new Date() - session.acceptedAt) / 1000) : 0;
+        
+        let content = 'Cuộc gọi video đã kết thúc.';
+        if (status === 'missed') {
+            content = 'Cuộc gọi nhỡ.';
+        } else if (status === 'declined') {
+            content = 'Cuộc gọi bị từ chối.';
+        } else if (status === 'cancelled') {
+            content = 'Cuộc gọi bị hủy.';
+        } else if (status === 'ended') {
+            const m = Math.floor(duration / 60);
+            const s = duration % 60;
+            content = `Cuộc gọi video đã kết thúc. Thời lượng: ${m} phút ${s} giây.`;
+        }
+        
+        const message = await ChatMessage.create({
+            conversationId: session.consultationId,
+            senderType: 'system',
+            content: content,
+            meta: { callId: session.callId, status, duration, reason }
+        });
+
+        // Tái sử dụng emitToSupportStaff nếu cần, nhưng đơn giản nhất là emit thẳng vào room
+        const room = `chat:conversation:${session.consultationId}`;
+        const serializedMessage = {
+            id: String(message._id),
+            conversationId: String(message.conversationId),
+            senderType: message.senderType,
+            senderId: null,
+            senderName: '',
+            content: message.content,
+            intent: '',
+            action: '',
+            meta: message.meta || {},
+            createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
+        };
+
+        io.to(room).emit('chat:message:new', {
+            conversationId: session.consultationId,
+            message: serializedMessage
+        });
+    } catch (error) {
+        console.error('[Call Log] Error saving call log to chat:', error);
+    }
 }
 
 const setupCallHandlers = (io) => {
@@ -292,6 +344,8 @@ const setupCallHandlers = (io) => {
                 consultationId,
                 accepted: false,
                 callType,
+                isChatContext: permission.isChatContext,
+                startedAt: new Date(),
             })
             setUserBusy(callerUserId, true)
             setUserBusy(targetUserId, true)
@@ -342,6 +396,9 @@ const setupCallHandlers = (io) => {
             if (!targetUserId || !callId) return
 
             const session = releaseCallSession(callId)
+            if (session) {
+                logCallToChat(io, session, 'declined');
+            }
 
             socket.to(targetUserId).emit('call:declined', {
                 callId,
@@ -355,6 +412,9 @@ const setupCallHandlers = (io) => {
             if (!targetUserId || !callId) return
 
             const session = releaseCallSession(callId)
+            if (session) {
+                logCallToChat(io, session, 'cancelled');
+            }
 
             socket.to(targetUserId).emit('call:cancelled', {
                 callId,
@@ -372,6 +432,7 @@ const setupCallHandlers = (io) => {
                 void completeConsultationIfNeeded(session).catch((error) => {
                     console.error('[Call] Auto-complete consultation failed:', error)
                 })
+                logCallToChat(io, session, 'ended');
             }
 
             socket.to(targetUserId).emit('call:end', {
@@ -386,6 +447,9 @@ const setupCallHandlers = (io) => {
             if (!targetUserId || !callId) return
 
             const session = releaseCallSession(callId)
+            if (session) {
+                logCallToChat(io, session, 'missed', payload.reason || 'NO_ANSWER');
+            }
 
             socket.to(targetUserId).emit('call-timeout', {
                 callId,
@@ -417,6 +481,8 @@ const setupCallHandlers = (io) => {
                     void completeConsultationIfNeeded(sessionSnapshot).catch((error) => {
                         console.error('[Call] Auto-complete consultation failed:', error)
                     })
+                    const status = session.accepted ? 'ended' : 'missed';
+                    logCallToChat(io, sessionSnapshot, status, 'USER_DISCONNECTED');
                 }
 
                 socket.to(otherUserId).emit('call:end', {
