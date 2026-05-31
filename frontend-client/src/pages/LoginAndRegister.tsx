@@ -9,6 +9,7 @@ import {
 	loginWithForm,
 	loginWithGoogle,
 	registerWithForm,
+	verifyRegisterOtp,
 	type AuthUser,
 } from '../services/auth.service'
 import FaceCamera from '../components/ui/FaceCamera'
@@ -22,6 +23,10 @@ interface LoginAndRegisterProps {
 function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 	const [isRegisterMode, setIsRegisterMode] = useState(false)
 	const [isForgotMode, setIsForgotMode] = useState(false)
+	const [isRegisterOtpMode, setIsRegisterOtpMode] = useState(false)
+	const [registerMaskedEmail, setRegisterMaskedEmail] = useState('')
+	const [registerOtp, setRegisterOtp] = useState('')
+	const [isVerifyingRegisterOtp, setIsVerifyingRegisterOtp] = useState(false)
 	const [showFaceCamera, setShowFaceCamera] = useState(false)
 	const [showPassword, setShowPassword] = useState(false)
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -86,8 +91,9 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 						password,
 					})
 
-					toast.success('Đăng ký tai khoan thành công')
-					handleAuthSuccess(result.user, result.accessToken)
+					toast.success(`OTP đã được gửi đến ${result.maskedEmail}`)
+					setRegisterMaskedEmail(result.maskedEmail)
+					setIsRegisterOtpMode(true)
 					return
 				}
 
@@ -109,6 +115,29 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 		}
 
 		void submitForm()
+	}
+
+	const handleVerifyRegisterOtp = async (event: React.FormEvent<HTMLFormElement>) => {
+		event.preventDefault()
+		if (!registerOtp || registerOtp.length !== 6) {
+			toast.error('OTP phai gom 6 chu so')
+			return
+		}
+		
+		try {
+			setIsVerifyingRegisterOtp(true)
+			const result = await verifyRegisterOtp({
+				email: email.trim().toLowerCase(),
+				otp: registerOtp.trim(),
+			})
+			
+			toast.success('Xác nhận đăng ký thành công')
+			handleAuthSuccess(result.user, result.accessToken)
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'Xác nhận OTP thất bại')
+		} finally {
+			setIsVerifyingRegisterOtp(false)
+		}
 	}
 
 	return (
@@ -143,6 +172,41 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 							onBack={() => setIsForgotMode(false)}
 							onVerified={() => setIsForgotMode(false)}
 						/>
+					) : isRegisterOtpMode ? (
+						<>
+							<button
+								type="button"
+								onClick={() => setIsRegisterOtpMode(false)}
+								className="mb-4 text-sm font-semibold text-[#1f9542] hover:underline"
+							>
+								Quay lại đăng ký
+							</button>
+
+							<form className="space-y-3" onSubmit={handleVerifyRegisterOtp}>
+								<p className="rounded-xl bg-[#f2f6f3] px-4 py-3 text-xs text-slate-600">
+									OTP đã được gửi đến {registerMaskedEmail || email}
+								</p>
+
+								<label className="block">
+								<span className="mb-1 block text-sm font-medium text-slate-600">Nhập OTP</span>
+								<input
+									type="text"
+									value={registerOtp}
+									onChange={(event) => setRegisterOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+									placeholder="Nhập mã OTP 6 chữ số"
+									className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+								/>
+								</label>
+
+								<button
+									type="submit"
+									disabled={isVerifyingRegisterOtp}
+									className="mt-1 h-11 w-full rounded-xl bg-[linear-gradient(120deg,#25a53e,#47c95a)] text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,165,62,0.28)] transition hover:brightness-105"
+								>
+									{isVerifyingRegisterOtp ? 'Đang xác nhận...' : 'Xác nhận OTP để đăng ký'}
+								</button>
+							</form>
+						</>
 					) : (
 						<>
 							<div className="mb-5 grid grid-cols-2 rounded-xl bg-[#f2f6f3] p-1">

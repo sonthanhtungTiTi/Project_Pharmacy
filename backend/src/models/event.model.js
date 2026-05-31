@@ -53,7 +53,6 @@ const eventSchema = new mongoose.Schema(
   },
 )
 
-eventSchema.index({ slug: 1 })
 eventSchema.index({ status: 1 })
 
 module.exports = mongoose.model('Event', eventSchema)

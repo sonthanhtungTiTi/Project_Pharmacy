@@ -6,7 +6,12 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SearchIcon from '@mui/icons-material/Search'
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart'
+import RemoveIcon from '@mui/icons-material/Remove'
+import AddIcon from '@mui/icons-material/Add'
 import { searchProductsByImage, type ProductItem } from '../../services/product.service'
+import { useCart } from '../../hooks/useCart'
+import toast from 'react-hot-toast'
 
 interface ImageUploadModalProps {
   isOpen: boolean
@@ -22,7 +27,10 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<ProductItem[]>([])
+  const [selectedItems, setSelectedItems] = useState<Record<string, number>>({})
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
   const webcamRef = useRef<Webcam>(null)
+  const { addItem } = useCart()
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
@@ -62,6 +70,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
     setError(null)
     setHasSearched(false)
     setResults([])
+    setSelectedItems({})
   }
 
   const handleSearch = async () => {
@@ -70,6 +79,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
     setIsSearching(true)
     setError(null)
     setHasSearched(false)
+    setSelectedItems({})
 
     try {
       const response = await searchProductsByImage(imageFile)
@@ -80,6 +90,42 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
       setError(err instanceof Error ? err.message : 'Tìm kiếm bằng hình ảnh thất bại.')
     } finally {
       setIsSearching(false)
+    }
+  }
+
+  const toggleSelection = (productId: string) => {
+    setSelectedItems(prev => {
+      const newItems = { ...prev }
+      if (newItems[productId]) {
+        delete newItems[productId]
+      } else {
+        newItems[productId] = 1
+      }
+      return newItems
+    })
+  }
+
+  const updateQuantity = (productId: string, delta: number) => {
+    setSelectedItems(prev => {
+      const current = prev[productId] || 1
+      const next = Math.max(1, current + delta)
+      return { ...prev, [productId]: next }
+    })
+  }
+
+  const handleAddSelectedToCart = async () => {
+    const items = Object.entries(selectedItems)
+    if (items.length === 0) return
+
+    setIsAddingToCart(true)
+    try {
+      await Promise.all(items.map(([id, qty]) => addItem(id, qty)))
+      toast.success(`Đã thêm ${items.length} sản phẩm vào giỏ hàng!`)
+      handleClose()
+    } catch (err) {
+      toast.error('Lỗi khi thêm vào giỏ hàng. Vui lòng thử lại.')
+    } finally {
+      setIsAddingToCart(false)
     }
   }
 
@@ -229,36 +275,89 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
               {/* Search Results */}
               {results.length > 0 && (
                 <div className="mt-8 w-full border-t border-gray-200 pt-6">
-                  <h3 className="mb-4 text-lg font-bold text-gray-800">Kết quả tìm kiếm ({results.length})</h3>
-                  <div className="max-h-64 overflow-y-auto space-y-3 pr-2">
-                    {results.map((item) => (
-                      <div key={item.id} className="flex items-center gap-4 rounded-xl border border-gray-100 p-3 shadow-sm hover:shadow-md transition bg-white">
-                        <img
-                          src={typeof item.images === 'string' ? item.images.split(';')[0].trim() : (item.images[0] || 'https://via.placeholder.com/80')}
-                          alt={item.productName}
-                          className="h-16 w-16 rounded-lg object-cover"
-                        />
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-800 line-clamp-1">{item.productName}</h4>
-                          <p className="font-medium text-green-600 mt-1">{item.price}</p>
+                  <h3 className="mb-4 text-lg font-bold text-gray-800">
+                    Kết quả tìm kiếm ({results.length})
+                  </h3>
+                  <div className="max-h-64 overflow-y-auto space-y-3 pr-2 mb-6">
+                    {results.map((item) => {
+                      const isSelected = !!selectedItems[item.id]
+                      const isPrescription = item.requiresPrescription
+                      
+                      return (
+                        <div key={item.id} className={`flex items-center gap-4 rounded-xl border p-3 shadow-sm transition bg-white ${isSelected ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-100 hover:shadow-md'}`}>
+                          
+                          {/* Checkbox (Disabled for Prescription Drugs) */}
+                          <div className="flex h-full items-center pl-2">
+                            <input 
+                              type="checkbox" 
+                              className="h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                              checked={isSelected}
+                              disabled={isPrescription}
+                              onChange={() => toggleSelection(item.id)}
+                            />
+                          </div>
+
+                          <img
+                            src={typeof item.images === 'string' ? item.images.split(';')[0].trim() : (item.images[0] || 'https://via.placeholder.com/80')}
+                            alt={item.productName}
+                            className={`h-16 w-16 rounded-lg object-cover ${isPrescription ? 'opacity-60' : ''}`}
+                          />
+                          <div className="flex-1">
+                            <h4 className={`font-semibold ${isPrescription ? 'text-gray-500' : 'text-gray-800'} line-clamp-1`}>{item.productName}</h4>
+                            <p className="font-medium text-green-600 mt-1">{item.price}</p>
+                            {isPrescription && (
+                              <p className="text-xs font-semibold text-red-500 mt-1">⚠️ Thuốc cần đơn kê, không thể chọn mua nhanh.</p>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-col items-end gap-2">
+                            {isSelected && !isPrescription && (
+                              <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50">
+                                <button type="button" onClick={() => updateQuantity(item.id, -1)} className="flex h-8 w-8 items-center justify-center text-gray-600 hover:text-green-600">
+                                  <RemoveIcon fontSize="small" />
+                                </button>
+                                <span className="w-8 text-center text-sm font-semibold">{selectedItems[item.id]}</span>
+                                <button type="button" onClick={() => updateQuantity(item.id, 1)} className="flex h-8 w-8 items-center justify-center text-gray-600 hover:text-green-600">
+                                  <AddIcon fontSize="small" />
+                                </button>
+                              </div>
+                            )}
+                            
+                            <button
+                              onClick={() => {
+                                window.location.href = `/product/${item.id}`
+                              }}
+                              className="rounded-lg bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-100 transition"
+                            >
+                              Xem chi tiết
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end">
-                          {item.requiresPrescription && (
-                            <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 whitespace-nowrap mb-2">
-                              ⚠️ Kê đơn
-                            </span>
-                          )}
-                          <button
-                            onClick={() => {
-                              window.location.href = `/product/${item.id}`
-                            }}
-                            className="rounded-lg bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-100 transition"
-                          >
-                            Xem chi tiết
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
+                  </div>
+
+                  {/* Footer Action */}
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                    <div className="text-sm font-medium text-gray-700">
+                      Đã chọn: <span className="font-bold text-green-600 text-lg">{Object.keys(selectedItems).length}</span> sản phẩm
+                    </div>
+                    <button
+                      onClick={handleAddSelectedToCart}
+                      disabled={Object.keys(selectedItems).length === 0 || isAddingToCart}
+                      className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 font-semibold text-white shadow-md hover:bg-green-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none transition-all"
+                    >
+                      {isAddingToCart ? (
+                        <>
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                          Đang thêm...
+                        </>
+                      ) : (
+                        <>
+                          <AddShoppingCartIcon /> Thêm vào giỏ hàng
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               )}

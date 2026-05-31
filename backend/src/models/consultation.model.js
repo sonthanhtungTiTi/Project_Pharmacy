@@ -129,6 +129,5 @@ const consultationSchema = new mongoose.Schema(
 // Index cho query tìm kiếm nhanh
 consultationSchema.index({ userId: 1, consultationDate: -1 })
 consultationSchema.index({ userId: 1, status: 1 })
-consultationSchema.index({ consultationDate: 1 })
 
 module.exports = mongoose.model('Consultation', consultationSchema)
