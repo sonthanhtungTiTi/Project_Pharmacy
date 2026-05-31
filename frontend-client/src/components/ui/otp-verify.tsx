@@ -35,12 +35,12 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 		event.preventDefault()
 
 		if (!email.trim()) {
-			toast.error('Vui lòng nhập email de khôi phục mat khau')
+			toast.error('Vui lòng nhập email để khôi phục mật khẩu')
 			return
 		}
 
 		if (!emailRegex.test(email.trim())) {
-			toast.error('Email khong hop le')
+			toast.error('Email không hợp lệ')
 			return
 		}
 
@@ -49,9 +49,11 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 			const result = await forgotPassword({ email: email.trim().toLowerCase() })
 			setMaskedEmail(result.maskedEmail)
 			setStep('otp')
-			toast.success(`OTP đã được gui den ${result.maskedEmail} (hieu luc ${result.expiresInMinutes} phut)`)
+			toast.success(
+				`OTP đã được gửi đến ${result.maskedEmail} (hiệu lực ${result.expiresInMinutes} phút)`
+			)
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Không thể gui OTP')
+			toast.error(error instanceof Error ? error.message : 'Không thể gửi OTP')
 		} finally {
 			setIsSendingOtp(false)
 		}
@@ -61,7 +63,7 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 		event.preventDefault()
 
 		if (!otpRegex.test(otp.trim())) {
-			toast.error('OTP phai gom 6 chu so')
+			toast.error('OTP phải gồm 6 chữ số')
 			return
 		}
 
@@ -84,17 +86,17 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 		event.preventDefault()
 
 		if (!newPassword || !confirmPassword) {
-			toast.error('Vui lòng nhập đầy đủ mat khau moi')
+			toast.error('Vui lòng nhập đầy đủ mật khẩu mới')
 			return
 		}
 
 		if (newPassword !== confirmPassword) {
-			toast.error('Mật khẩu nhập lai không khớp')
+			toast.error('Mật khẩu nhập lại không khớp')
 			return
 		}
 
 		if (newPassword.length < 6 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
-			toast.error('Mật khẩu moi phai tu 6 ký tự va gom chữ + số')
+			toast.error('Mật khẩu mới phải từ 6 ký tự và gồm chữ + số')
 			return
 		}
 
@@ -142,7 +144,7 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 						disabled={isSendingOtp}
 						className="mt-1 h-11 w-full rounded-xl bg-[linear-gradient(120deg,#25a53e,#47c95a)] text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,165,62,0.28)] transition hover:brightness-105"
 					>
-						{isSendingOtp ? 'Dang gui OTP...' : 'Gui OTP'}
+							{isSendingOtp ? 'Đang gửi OTP...' : 'Gửi OTP'}
 					</button>
 				</form>
 			</>
@@ -254,7 +256,7 @@ function OtpVerify({ initialEmail = '', onBack, onVerified }: OtpVerifyProps) {
 						disabled={isResettingPassword}
 						className="mt-1 h-11 w-full rounded-xl bg-[linear-gradient(120deg,#25a53e,#47c95a)] text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,165,62,0.28)] transition hover:brightness-105"
 					>
-						{isResettingPassword ? 'Dang cập nhật...' : 'Đặt lại mat khau'}
+							{isResettingPassword ? 'Đang cập nhật...' : 'Đặt lại mật khẩu'}
 					</button>
 				</form>
 			</>

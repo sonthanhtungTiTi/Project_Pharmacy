@@ -49,14 +49,7 @@ const disableFaceId = async (req, res) => {
 
 const loginWithFaceId = async (req, res) => {
 	try {
-		const { email, faceDescriptors } = req.body
-
-		if (!email) {
-			return res.status(400).json({
-				success: false,
-				message: 'Vui lòng cung cấp email hoặc số điện thoại'
-			})
-		}
+		const { faceDescriptors } = req.body
 
 		if (!faceDescriptors || faceDescriptors.length < 3) {
 			return res.status(400).json({ 
@@ -65,7 +58,7 @@ const loginWithFaceId = async (req, res) => {
 			})
 		}
 
-		const data = await faceAuthService.loginWithFaceId(email, faceDescriptors)
+		const data = await faceAuthService.loginWithFaceId(faceDescriptors)
 
 		return res.status(200).json({
 			success: true,

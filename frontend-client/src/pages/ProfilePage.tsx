@@ -9,6 +9,13 @@ interface ProfilePageProps {
 
 function ProfilePage({ onBackHome }: ProfilePageProps) {
 	const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+	const initialSection = (() => {
+		const section = new URLSearchParams(window.location.search).get('section')?.trim()
+		if (section === 'address' || section === 'profile' || section === 'orders' || section === 'voucher') {
+			return section
+		}
+		return 'orders'
+	})()
 
 	useEffect(() => {
 		const userRaw = localStorage.getItem('clientUser')
@@ -63,7 +70,7 @@ function ProfilePage({ onBackHome }: ProfilePageProps) {
 					setAuthUser(updatedUser)
 				}}
 				mode="page"
-				initialSection="orders"
+				initialSection={initialSection}
 			/>
 		</PharmacyLayout>
 	)

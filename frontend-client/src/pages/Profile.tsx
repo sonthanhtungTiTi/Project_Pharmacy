@@ -480,13 +480,13 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 							alt={fullName}
 							className="mx-auto h-24 w-24 rounded-full border-4 border-white object-cover shadow-sm"
 						/>
-						<h3 className="mt-3 text-center text-lg font-bold text-slate-800">{fullName || 'Khach hang'}</h3>
-						<p className="text-center text-sm text-slate-500">{phone || 'Chua co số điện thoại'}</p>
+						<h3 className="mt-3 text-center text-lg font-bold text-slate-800">{fullName || 'Khách hàng'}</h3>
+						<p className="text-center text-sm text-slate-500">{phone || 'Chưa có số điện thoại'}</p>
 
 						<nav className="mt-4 space-y-1">
 							{[
 								{ key: 'orders', label: 'Đơn hàng của tôi' },
-								{ key: 'voucher', label: 'Vi voucher' },
+								{ key: 'voucher', label: 'Ví voucher' },
 								{ key: 'profile', label: 'Thông tin cá nhân' },
 								{ key: 'address', label: 'Địa chỉ nhận hàng' }
 								// { key: 'notifications', label: 'Thông báo' },
@@ -513,7 +513,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 						<form className="space-y-4" onSubmit={handleSubmit}>
 							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Ho va ten</span>
+									<span className="mb-1 block text-sm font-medium text-slate-600">Họ và tên</span>
 									<input
 										type="text"
 										value={fullName}
@@ -523,7 +523,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 								</label>
 
 								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">So dien thoai</span>
+									<span className="mb-1 block text-sm font-medium text-slate-600">Số điện thoại</span>
 									<input
 										type="tel"
 										value={phone}
@@ -545,7 +545,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 								</label>
 
 								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Ngay sinh</span>
+									<span className="mb-1 block text-sm font-medium text-slate-600">Ngày sinh</span>
 									<input
 										type="date"
 										value={dateOfBirth}
@@ -665,32 +665,32 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 									disabled={isSaving}
 									className="h-10 rounded-xl bg-[linear-gradient(120deg,#25a53e,#47c95a)] px-5 text-sm font-bold text-white"
 								>
-									{isSaving ? 'Dang luu...' : 'Lưu thay doi'}
+									{isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
 								</button>
 							</div>
 						</form>
 					) : activeSection === 'address' ? (
 						<section className="rounded-2xl border border-slate-200 bg-white p-5">
 							<div className="rounded-2xl border border-[#d8efdc] bg-[#f7fcf8] p-4">
-								<p className="mb-3 text-sm font-bold text-[#1f9542]">Dia chi nhận hàng (API Tinh/Huyen/Xa)</p>
+								<p className="mb-3 text-sm font-bold text-[#1f9542]">Địa chỉ nhận hàng (API Tỉnh/Huyện/Xã)</p>
 
 								<div className="mb-4 space-y-2 rounded-xl bg-white p-3">
 									<div className="flex items-center justify-between gap-2">
-										<p className="text-sm font-semibold text-slate-700">Dia chi da luu</p>
+										<p className="text-sm font-semibold text-slate-700">Địa chỉ đã lưu</p>
 										<button
 											type="button"
 											onClick={handleCreateNewAddress}
 											className="rounded-lg border border-[#86c790] px-3 py-1.5 text-xs font-semibold text-[#1f9542]"
 										>
-											+ Them địa chỉ moi
+											+ Thêm địa chỉ mới
 										</button>
 									</div>
 
 									<p className="text-xs text-slate-500">
-										Che do: {addressFormMode === 'edit' ? 'Dang sua địa chỉ da chon' : 'Dang tao địa chỉ moi'}
+										Chế độ: {addressFormMode === 'edit' ? 'Đang sửa địa chỉ đã chọn' : 'Đang tạo địa chỉ mới'}
 									</p>
 
-									{addresses.length === 0 && <p className="text-xs text-slate-500">Chua co địa chỉ nao.</p>}
+									{addresses.length === 0 && <p className="text-xs text-slate-500">Chưa có địa chỉ nào.</p>}
 
 									{addresses.map((item) => (
 										<div key={item.id} className="rounded-lg border border-slate-200 p-2">
@@ -707,7 +707,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 														: 'bg-slate-100 text-slate-700'
 														}`}
 												>
-													Chon sua
+													Chọn sửa
 												</button>
 
 												{!item.isDefault && (
@@ -716,12 +716,12 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 														onClick={() => void handleSetDefaultAddress(item.id)}
 														className="rounded bg-[#fef3c7] px-2 py-1 text-xs font-semibold text-[#b45309]"
 													>
-														Dat mặc định
+														Đặt mặc định
 													</button>
 												)}
 
 												{item.isDefault && (
-													<span className="rounded bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#15803d]">Mac dinh</span>
+													<span className="rounded bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#15803d]">Mặc định</span>
 												)}
 											</div>
 										</div>
@@ -730,7 +730,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 
 								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">Nguoi nhan</span>
+										<span className="mb-1 block text-sm font-medium text-slate-600">Người nhận</span>
 										<input
 											type="text"
 											value={recipientName}
@@ -740,7 +740,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 									</label>
 
 									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">So dien thoai nhận hàng</span>
+										<span className="mb-1 block text-sm font-medium text-slate-600">Số điện thoại nhận hàng</span>
 										<input
 											type="tel"
 											value={recipientPhone}
@@ -752,13 +752,13 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 
 								<div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
 									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">Tinh/Thanh</span>
+										<span className="mb-1 block text-sm font-medium text-slate-600">Tỉnh/Thành</span>
 										<select
 											value={provinceCode}
 											onChange={(event) => setProvinceCode(event.target.value)}
 											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a]"
 										>
-											<option value="">Chon tinh/thanh</option>
+											<option value="">Chọn tỉnh/thành</option>
 											{provinces.map((item) => (
 												<option key={item.code} value={String(item.code)}>
 													{item.name}
@@ -768,14 +768,14 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 									</label>
 
 									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">Quan/Huyen</span>
+										<span className="mb-1 block text-sm font-medium text-slate-600">Quận/Huyện</span>
 										<select
 											value={districtCode}
 											onChange={(event) => setDistrictCode(event.target.value)}
 											disabled={!provinceCode}
 											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a] disabled:bg-slate-100"
 										>
-											<option value="">Chon quan/huyen</option>
+											<option value="">Chọn quận/huyện</option>
 											{districts.map((item) => (
 												<option key={item.code} value={String(item.code)}>
 													{item.name}
@@ -785,14 +785,14 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 									</label>
 
 									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">Phuong/Xa</span>
+										<span className="mb-1 block text-sm font-medium text-slate-600">Phường/Xã</span>
 										<select
 											value={wardCode}
 											onChange={(event) => setWardCode(event.target.value)}
 											disabled={!districtCode}
 											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a] disabled:bg-slate-100"
 										>
-											<option value="">Chon phuong/xa</option>
+											<option value="">Chọn phường/xã</option>
 											{wards.map((item) => (
 												<option key={item.code} value={String(item.code)}>
 													{item.name}
@@ -804,7 +804,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 
 								<div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
 									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">So nha, ten duong</span>
+										<span className="mb-1 block text-sm font-medium text-slate-600">Số nhà, tên đường</span>
 										<input
 											type="text"
 											value={street}
@@ -814,21 +814,21 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 									</label>
 
 									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">Loai địa chỉ</span>
+										<span className="mb-1 block text-sm font-medium text-slate-600">Loại địa chỉ</span>
 										<select
 											value={label}
 											onChange={(event) => setLabel(event.target.value as 'home' | 'office' | 'other')}
 											className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#72d27a]"
 										>
-											<option value="home">Nha rieng</option>
-											<option value="office">Van phong</option>
-											<option value="other">Khac</option>
+											<option value="home">Nhà riêng</option>
+											<option value="office">Văn phòng</option>
+											<option value="other">Khác</option>
 										</select>
 									</label>
 								</div>
 
 								<label className="mt-4 block">
-									<span className="mb-1 block text-sm font-medium text-slate-600">Ghi chu giao hang</span>
+									<span className="mb-1 block text-sm font-medium text-slate-600">Ghi chú giao hàng</span>
 									<input
 										type="text"
 										value={addressNote}
@@ -844,7 +844,7 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 										onChange={(event) => setIsAddressDefault(event.target.checked)}
 										className="h-4 w-4 rounded border-slate-300 text-[#2ea847] focus:ring-[#7bd58a]"
 									/>
-									<span className="text-sm text-slate-700">Dat địa chỉ nay lam mặc định</span>
+									<span className="text-sm text-slate-700">Đặt địa chỉ này làm mặc định</span>
 								</label>
 
 								<div className="mt-3 flex justify-end">
@@ -853,11 +853,11 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 										onClick={() => void handleSaveAddressOnly()}
 										className="h-10 rounded-xl border border-[#86c790] bg-white px-4 text-sm font-semibold text-[#1f9542]"
 									>
-										{addressFormMode === 'edit' ? 'Cập nhật địa chỉ' : 'Them địa chỉ moi'}
+										{addressFormMode === 'edit' ? 'Cập nhật địa chỉ' : 'Thêm địa chỉ mới'}
 									</button>
 								</div>
 
-								{isLoadingAddressData && <p className="mt-2 text-xs text-slate-500">Dang tai du lieu địa chỉ...</p>}
+								{isLoadingAddressData && <p className="mt-2 text-xs text-slate-500">Đang tải dữ liệu địa chỉ...</p>}
 							</div>
 						</section>
 					) : activeSection === 'orders' ? (

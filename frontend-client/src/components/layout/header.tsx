@@ -104,7 +104,7 @@ function Header({
 
 	return (
 		<>
-			<div className="bg-[#22b245] w-full relative z-[988]">
+			<div className="bg-[#22b245] w-full relative z-0">
 				<div className="overflow-hidden">
 					<div
 						className="flex w-full transition-transform duration-700 ease-in-out"
@@ -133,8 +133,8 @@ function Header({
 			<header className="sticky top-0 z-50 w-full bg-[#2eaf42] text-white shadow-[0_6px_18px_rgba(12,90,31,0.2)]">
 				<div className="mx-auto max-w-[1200px] px-4">
 					<div className="flex items-center justify-between pt-4">
-					<div className="flex items-center gap-2 text-sm">
-						<LocalShippingIcon sx={{ fontSize: 20, color: 'white' }} />
+						<div className="flex items-center gap-2 text-sm">
+							<LocalShippingIcon sx={{ fontSize: 20, color: 'white' }} />
 							<span className="text-white/90">Giao hàng tại:</span>
 							<span className="ml-1 font-semibold">Ho Chi Minh</span>
 						</div>
@@ -144,8 +144,17 @@ function Header({
 					</div>
 
 					<div className="flex flex-wrap items-center gap-4 pb-4 pt-2">
-<a href="/" className="flex h-8 w-[110px] items-center text-2xl font-black leading-none">
-						<p><img src="https://res.cloudinary.com/devdnfoyh/image/upload/v1773639699/logo_ms0x2m.png" alt="" className="h-full w-full object-contain" /></p>
+						<a href="/" className="flex h-[45px] w-[110px] items-center text-2xl font-black leading-none">
+							<p
+								className="h-full w-full overflow-hidden"
+								style={{ clipPath: 'circle(50% at 50% 50%)' }}
+							>
+								<img
+									src="https://res.cloudinary.com/devdnfoyh/image/upload/v1773639699/logo_ms0x2m.png"
+									alt=""
+									className="h-full w-full object-cover"
+								/>
+							</p>
 							<span className="ml-1 text-[#dfffa1]"></span>
 						</a>
 
@@ -168,8 +177,8 @@ function Header({
 									}}
 									className="w-full bg-transparent text-sm text-slate-700 outline-none"
 								/>
-								<button 
-									type="button" 
+								<button
+									type="button"
 									onClick={() => setIsImageSearchOpen(true)}
 									className="absolute right-3 flex h-full items-center text-slate-500 hover:text-green-600 transition"
 								>
@@ -180,11 +189,11 @@ function Header({
 							{shouldShowSearchPopover && (
 								<div className="absolute left-0 right-0 top-[46px] z-[1002] max-h-[420px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-[0_14px_40px_rgba(15,23,42,0.18)]">
 									{isSearching && (
-											<p className="px-2 py-2 text-sm text-slate-500">Đang tìm sản phẩm...</p>
+										<p className="px-2 py-2 text-sm text-slate-500">Đang tìm sản phẩm...</p>
 									)}
 
 									{!isSearching && searchResults.length === 0 && (
-											<p className="px-2 py-2 text-sm text-slate-500">Không tìm thấy sản phẩm phù hợp.</p>
+										<p className="px-2 py-2 text-sm text-slate-500">Không tìm thấy sản phẩm phù hợp.</p>
 									)}
 
 									{!isSearching &&
@@ -252,20 +261,12 @@ function Header({
 				</div>
 			</header>
 
-			<ImageUploadModal 
-				isOpen={isImageSearchOpen} 
-				onClose={() => setIsImageSearchOpen(false)} 
+			<ImageUploadModal
+				isOpen={isImageSearchOpen}
+				onClose={() => setIsImageSearchOpen(false)}
 				onSearchResults={(results) => {
-					// You can either open the search popover with the results, 
-					// or redirect to a search page. For now, let's just trigger 
-					// the search behavior if possible, or navigate.
-					// Since we don't have access to the parent's setState for results,
-					// let's pass a custom event or navigate.
-					// For simplicity, we can dispatch a custom event that the parent listens to,
-					// or redirect to `/tim-kiem?image=true` and store results in sessionStorage.
-					sessionStorage.setItem('imageSearchResults', JSON.stringify(results))
-					window.history.pushState({}, '', '/tim-kiem?imageSearch=true')
-					window.dispatchEvent(new PopStateEvent('popstate'))
+					// Modal now handles displaying results directly.
+					// We no longer need to redirect to an unimplemented /tim-kiem page.
 				}}
 			/>
 		</>

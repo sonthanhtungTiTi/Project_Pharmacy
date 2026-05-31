@@ -290,10 +290,6 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 									<button
 										type="button"
 										onClick={() => {
-											if (!phone.trim()) {
-												toast.error('Vui lòng nhập Email hoặc Số điện thoại trước khi dùng Face ID')
-												return
-											}
 											setShowFaceCamera(true)
 										}}
 										className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#4ade80] bg-[#f0fdf4] text-sm font-bold text-[#166534] transition hover:bg-[#dcfce7]"
@@ -327,7 +323,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 					onCapture={async (descriptors) => {
 						try {
 							setIsSubmitting(true)
-							const result = await loginWithFaceId(phone.trim(), descriptors)
+							const result = await loginWithFaceId(descriptors)
 							handleAuthSuccess(result.user, result.accessToken)
 						} catch (error: any) {
 							toast.error(error.message || 'Đăng nhập Face ID thất bại')

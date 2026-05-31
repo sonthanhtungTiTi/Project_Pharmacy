@@ -58,13 +58,13 @@ export const disableFaceId = async () => {
  * Đăng nhập bằng Face ID
  * Gửi 3 vector (thẳng, trái, phải) dưới dạng JSON để backend kiểm tra chống giả mạo
  */
-export const loginWithFaceId = async (email: string, descriptors: number[][]) => {
+export const loginWithFaceId = async (descriptors: number[][]) => {
 	const response = await fetch(`${API_BASE_URL}/client/auth/face/login`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
 		},
-		body: JSON.stringify({ email, faceDescriptors: descriptors }),
+		body: JSON.stringify({ faceDescriptors: descriptors }),
 	})
 
 	const payload = await response.json()

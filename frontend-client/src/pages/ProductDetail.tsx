@@ -132,10 +132,12 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 	const [isSubmittingRequest, setIsSubmittingRequest] = useState(false)
 	const [consultationSent, setConsultationSent] = useState(false)
 	const [showPrescriptionWarning, setShowPrescriptionWarning] = useState(false)
+	const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null)
 
 	const handlePrescriptionUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0]
 		if (file) {
+			setPrescriptionFile(file)
 			const reader = new FileReader()
 			reader.onloadend = () => {
 				setPrescriptionUrl(reader.result as string)
@@ -173,7 +175,12 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 				setConsultationSent(true)
 				toast.success('Yêu cầu đã gửi! Nhân viên sẽ tư vấn bạn qua khung chat.')
 				setAddToCartMessage('')
-				window.dispatchEvent(new CustomEvent('openChatbot'))
+				window.dispatchEvent(new CustomEvent('openChatbot', {
+					detail: {
+						initialMessage: `Tôi muốn tư vấn thuốc này kèm theo hình ảnh đơn thuốc đã gửi: ${product.productName}`,
+						initialImage: prescriptionFile
+					}
+				}))
 			} else {
 				toast.error(data.message || 'Lỗi khi gửi yêu cầu')
 				setAddToCartMessage('')

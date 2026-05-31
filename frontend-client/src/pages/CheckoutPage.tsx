@@ -139,6 +139,10 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 		goPath('/')
 	}
 
+	const handleOpenAddressProfile = () => {
+		goPath('/profile?section=address')
+	}
+
 	const handlePlaceOrder = async () => {
 		if (!selectedCheckoutAddress?.id || !canSubmit) {
 			return
@@ -295,9 +299,18 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 						{isLoadingAddress && <p className="mt-3 text-sm text-slate-600">Đang tải địa chỉ mặc định...</p>}
 
 						{!isLoadingAddress && !selectedCheckoutAddress && (
-							<p className="mt-3 rounded-lg bg-[#fff7ed] p-3 text-sm font-medium text-[#b45309]">
-								Bạn chưa có địa chỉ mặc định. Hãy vào hồ sơ để thêm địa chỉ trước khi thanh toán.
-							</p>
+							<div className="mt-3 rounded-lg bg-[#fff7ed] p-3">
+								<p className="text-sm font-medium text-[#b45309]">
+									Bạn chưa có địa chỉ mặc định. Hãy vào hồ sơ để thêm địa chỉ trước khi thanh toán.
+								</p>
+								<button
+									type="button"
+									onClick={handleOpenAddressProfile}
+									className="mt-3 rounded-lg border border-[#facc15] bg-white px-3 py-2 text-sm font-semibold text-[#b45309]"
+								>
+									Điền thông tin nhận hàng
+								</button>
+							</div>
 						)}
 
 						{selectedCheckoutAddress && (

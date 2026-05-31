@@ -14,15 +14,15 @@ const STABLE_ANGLE_STD_DEV_MAX = 5.0 // Độ lệch chuẩn tối đa (độ) �
 
 const ENROLL_STEPS = [
 	{ id: 'straight', label: 'Nhìn thẳng vào camera', check: (yaw: number, pitch: number) => Math.abs(yaw) <= 15 && Math.abs(pitch) <= 20 },
-	{ id: 'left',     label: 'Quay mặt sang TRÁI một chút', check: (yaw: number, _pitch: number) => yaw < -10 },
-	{ id: 'right',    label: 'Quay mặt sang PHẢI một chút', check: (yaw: number, _pitch: number) => yaw > 10 },
+	{ id: 'left', label: 'Quay mặt sang TRÁI một chút', check: (yaw: number, _pitch: number) => yaw < -10 },
+	{ id: 'right', label: 'Quay mặt sang PHẢI một chút', check: (yaw: number, _pitch: number) => yaw > 10 },
 ]
 
 const shuffleArray = (array: any[]) => {
 	const newArr = [...array]
 	for (let i = newArr.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1))
-		;[newArr[i], newArr[j]] = [newArr[j], newArr[i]]
+			;[newArr[i], newArr[j]] = [newArr[j], newArr[i]]
 	}
 	return newArr
 }
@@ -66,10 +66,10 @@ const estimatePose = (landmarks: any) => {
 
 	const dLeft = noseTip.x - eyeLeft.x
 	const dRight = eyeRight.x - noseTip.x
-	
+
 	const sumX = dLeft + dRight
 	const asymmetryX = sumX !== 0 ? (dLeft - dRight) / sumX : 0
-	
+
 	// Multiply by negative factor so that:
 	// - turning left (asymmetryX is positive because nose moves right) yields negative yaw (yaw < -15)
 	// - turning right (asymmetryX is negative because nose moves left) yields positive yaw (yaw > 15)
@@ -79,12 +79,12 @@ const estimatePose = (landmarks: any) => {
 	// Midpoint of eyes vertically vs nose tip vs chin (index 8)
 	const eyeCenterY = (eyeLeft.y + eyeRight.y) / 2
 	const chin = positions[8]
-	
+
 	const dEyeToNose = noseTip.y - eyeCenterY
 	const dNoseToChin = Math.max(1, chin.y - noseTip.y)
-	
+
 	const pitchRatio = dEyeToNose / dNoseToChin
-	
+
 	// Baseline pitch ratio when looking straight is around 0.8
 	// If looking UP: nose moves closer to eyes, pitchRatio decreases.
 	// If looking DOWN: nose moves closer to chin, pitchRatio increases.
@@ -135,7 +135,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 					faceapi.nets.faceRecognitionNet.loadFromUri('/models')
 				])
 				setModelsLoaded(true)
-				setMessage('Vui lòng đưa mặt vào giữa vòng tròn.')
+				setMessage('Vui lòng đưa mặt vào giữa vòng tròn-nghiên về phải một chút-Hoặc-nghiêng đầu sang trái một chút.')
 			} catch (error) {
 				console.error('Lỗi tải mô hình AI:', error)
 				setMessage('Lỗi tải AI. Vui lòng thử lại sau.')
@@ -219,7 +219,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 				const { yaw, pitch } = estimatePose(landmarks)
 
 				const currentIndex = stepIndexRef.current
-				const currentStep  = STEPS[currentIndex]
+				const currentStep = STEPS[currentIndex]
 				if (!currentStep) { processingRef.current = false; return }
 
 				const poseOk = currentStep.check(yaw, pitch)
@@ -339,9 +339,9 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 							<g transform="translate(160, 160)">
 								{Array.from({ length: numDashes }).map((_, i) => {
 									const angle = (i * 360) / numDashes
-									const isDone  = (i / numDashes) * 100 < progressPercent
+									const isDone = (i / numDashes) * 100 < progressPercent
 									// Màu vàng cho phần "đang filling" theo tỷ lệ buffer
-									const bufLen  = Math.min(angleBufferRef.current.length, STABLE_FRAMES_REQUIRED)
+									const bufLen = Math.min(angleBufferRef.current.length, STABLE_FRAMES_REQUIRED)
 									const isFilling = !isDone && stableState === 'filling'
 										&& i < Math.round((bufLen / STABLE_FRAMES_REQUIRED) * numDashes)
 

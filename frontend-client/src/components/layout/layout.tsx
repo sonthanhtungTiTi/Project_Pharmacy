@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import LoginAndRegister from '../../pages/LoginAndRegister'
 import type { AuthUser } from '../../services/auth.service'
 import type { ProductItem } from '../../services/product.service'
+import { clearChatConversation } from '../../services/chat.service'
 import Footer from './footer'
 import Header from './header'
 
@@ -84,7 +85,13 @@ function PharmacyLayout({
 		return () => window.removeEventListener('storage', handleStorage)
 	}, [])
 
-	const handleLogout = () => {
+	const handleLogout = async () => {
+		try {
+			// Ignore error if not logged in or token expired
+			await clearChatConversation().catch(() => {})
+		} catch (e) {
+			console.error('Failed to clear chat on logout', e)
+		}
 		localStorage.removeItem('clientAccessToken')
 		localStorage.removeItem('clientUser')
 		setAuthUser(null)

@@ -192,6 +192,7 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 	const [lightbox, setLightbox] = useState<{ url: string; scale: number } | null>(null)
 	const bottomRef = useRef<HTMLDivElement | null>(null)
 	const imageInputRef = useRef<HTMLInputElement | null>(null)
+	const [pendingAutoSend, setPendingAutoSend] = useState(false)
 
 	const clearImage = useCallback(() => {
 		if (imagePreview) {
@@ -334,11 +335,46 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 			setIsBotTyping(false)
 			setHumanNotice('')
 			clearImage()
+			setPendingAutoSend(false)
 			return
 		}
 
 		void loadConversation()
 	}, [clearImage, isOpen, loadConversation])
+
+	useEffect(() => {
+		const handleOpenChatbot = (event: Event) => {
+			const detail = (event as CustomEvent).detail
+			if (detail?.initialMessage || detail?.initialImage) {
+				if (detail.initialMessage) {
+					setDraft(detail.initialMessage)
+				}
+				if (detail.initialImage) {
+					const file = detail.initialImage
+					const previewUrl = URL.createObjectURL(file)
+					setImageFile(file)
+					setImagePreview(previewUrl)
+					setError(null)
+				}
+				setPendingAutoSend(true)
+			}
+		}
+
+		window.addEventListener('openChatbot', handleOpenChatbot)
+		return () => window.removeEventListener('openChatbot', handleOpenChatbot)
+	}, [])
+
+	useEffect(() => {
+		if (isOpen && conversation && pendingAutoSend && (draft || imageFile) && !sending && !uploadingImage) {
+			setPendingAutoSend(false)
+			setTimeout(() => {
+				const sendBtn = document.getElementById('chat-send-btn')
+				if (sendBtn && !sendBtn.hasAttribute('disabled')) {
+					sendBtn.click()
+				}
+			}, 300)
+		}
+	}, [isOpen, conversation, pendingAutoSend, draft, imageFile, sending, uploadingImage])
 
 	useEffect(() => {
 		return () => {
@@ -806,6 +842,7 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 									className="h-10 flex-1 rounded-xl border border-gray-200 px-3 text-sm outline-none transition focus:border-blue-400"
 								/>
 								<button
+									id="chat-send-btn"
 									type="button"
 									onClick={() => {
 										void handleSendMessage()
