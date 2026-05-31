@@ -131,7 +131,7 @@ function ProductCard({
 							className="absolute left-0 top-0 h-full rounded-l-[999px] bg-gradient-to-r from-[#fffbcd] to-[#feb916]"
 							style={{ width: `${progressPercent}%` }}
 						/>
-						<span className="relative z-10 font-semibold">🔥 {safeSold}/{safeTotal} Suất</span>
+						<span className="relative z-[1] font-semibold">🔥 {safeSold}/{safeTotal} Suất</span>
 					</div>
 				</div>
 			</div>

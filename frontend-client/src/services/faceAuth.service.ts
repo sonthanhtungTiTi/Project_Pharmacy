@@ -14,18 +14,16 @@ const getAuthHeaders = () => {
 
 /**
  * Đăng ký Face ID (Enroll)
- * Cần gửi JWT Token và 1 file ảnh (Blob)
+ * Gửi 3 vector đặc trưng khuôn mặt (straight, left, right) dưới dạng JSON
  */
-export const enrollFaceId = async (imageBlobs: Blob[]) => {
-	const formData = new FormData()
-	imageBlobs.forEach((blob, index) => {
-		formData.append('faceImages', blob, `face_${index}.jpg`)
-	})
-
+export const enrollFaceId = async (descriptors: number[][]) => {
 	const response = await fetch(`${API_BASE_URL}/client/auth/face/enroll`, {
 		method: 'POST',
-		headers: getAuthHeaders(),
-		body: formData,
+		headers: {
+			...getAuthHeaders(),
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ faceDescriptors: descriptors }),
 	})
 
 	const payload = await response.json()
@@ -58,18 +56,15 @@ export const disableFaceId = async () => {
 
 /**
  * Đăng nhập bằng Face ID
- * Gửi 3 ảnh (thẳng, trái, phải) để backend kiểm tra chống giả mạo ảnh tĩnh
+ * Gửi 3 vector (thẳng, trái, phải) dưới dạng JSON để backend kiểm tra chống giả mạo
  */
-export const loginWithFaceId = async (email: string, imageBlobs: Blob[]) => {
-	const formData = new FormData()
-	formData.append('email', email)
-	imageBlobs.forEach((blob, index) => {
-		formData.append('faceImages', blob, `face_login_${index}.jpg`)
-	})
-
+export const loginWithFaceId = async (email: string, descriptors: number[][]) => {
 	const response = await fetch(`${API_BASE_URL}/client/auth/face/login`, {
 		method: 'POST',
-		body: formData,
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ email, faceDescriptors: descriptors }),
 	})
 
 	const payload = await response.json()

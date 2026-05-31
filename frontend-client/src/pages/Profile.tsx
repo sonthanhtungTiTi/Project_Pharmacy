@@ -155,6 +155,8 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 		[wardCode, wards],
 	)
 
+
+
 	const handleSelectOrder = async (orderId: string, fallbackOrders?: OrderData[]) => {
 		if (!orderId) {
 			return
@@ -1039,13 +1041,13 @@ function Profile({ user, onClose, onSave, mode = 'modal', initialSection = 'orde
 			{showFaceCamera && (
 				<FaceCamera
 					onClose={() => setShowFaceCamera(false)}
-					onCapture={async (blob) => {
+					onCapture={async (descriptors) => {
 						try {
-							await enrollFaceId(blob)
+							await enrollFaceId(descriptors)
 							setIsFaceIdEnabled(true)
 							toast.success('Đăng ký Face ID thành công!')
 							setShowFaceCamera(false)
-
+ 
 							const updatedUser = { ...user, faceIdEnabled: true }
 							localStorage.setItem('clientUser', JSON.stringify(updatedUser))
 							onSave(updatedUser)
