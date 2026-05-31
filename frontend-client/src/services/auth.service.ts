@@ -21,21 +21,6 @@ interface AuthResponse {
 	error?: string
 }
 
-interface RegisterResponse {
-	success: boolean
-	message: string
-	data?: {
-		maskedEmail: string
-		expiresInMinutes: number
-	}
-	error?: string
-}
-
-interface VerifyRegisterOtpPayload {
-	email: string
-	otp: string
-}
-
 interface ProfileUpdateResponse {
 	success: boolean
 	message: string
@@ -81,13 +66,12 @@ interface VerifyForgotPasswordOtpResponse {
 	message: string
 	data?: {
 		verified: boolean
-		reset_token: string
 	}
 	error?: string
 }
 
 interface ResetForgotPasswordPayload {
-	resetToken: string
+	email: string
 	newPassword: string
 	confirmPassword: string
 }
@@ -163,28 +147,10 @@ export const registerWithForm = async (registerPayload: RegisterPayload) => {
 		body: JSON.stringify(registerPayload),
 	})
 
-	const payload = (await response.json()) as RegisterResponse
-
-	if (!response.ok || !payload.success || !payload.data) {
-		throw new Error(payload.message || payload.error || 'Register failed')
-	}
-
-	return payload.data
-}
-
-export const verifyRegisterOtp = async (verifyPayload: VerifyRegisterOtpPayload) => {
-	const response = await fetch(`${API_BASE_URL}/client/auth/register/verify-otp`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(verifyPayload),
-	})
-
 	const payload = (await response.json()) as AuthResponse
 
 	if (!response.ok || !payload.success || !payload.data) {
-		throw new Error(payload.message || payload.error || 'Verify OTP failed')
+		throw new Error(payload.message || payload.error || 'Register failed')
 	}
 
 	return payload.data

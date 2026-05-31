@@ -1,7 +1,7 @@
 const { OAuth2Client } = require('google-auth-library')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
-const { sendResetOtpEmail, sendRegisterOtpEmail } = require('./mail.service')
+const { sendResetOtpEmail } = require('./mail.service')
 
 const User = require('../../models/user.model')
 const Otp = require('../../models/otp.model')
@@ -124,106 +124,29 @@ const registerLocalUser = async ({ fullName, email, phone, password }) => {
 	const normalizedEmail = String(email).toLowerCase().trim()
 	const normalizedPhone = String(phone).trim()
 
-	let user = await User.findOne({
+	const existingUser = await User.findOne({
 		$or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
 	})
 
-	if (user) {
-		if (user.isActive) {
-			if (user.email === normalizedEmail) {
-				throw new AuthServiceError('Email already exists', 409)
-			}
-			throw new AuthServiceError('Phone already exists', 409)
-		} else {
-			// Reuse the pending user record
-			user.fullName = String(fullName).trim()
-			user.phone = normalizedPhone
-			user.password = await bcrypt.hash(password, 10)
-			await user.save()
+	if (existingUser) {
+		if (existingUser.email === normalizedEmail) {
+			throw new AuthServiceError('Email already exists', 409)
 		}
-	} else {
-		const passwordHash = await bcrypt.hash(password, 10)
-		user = await User.create({
-			fullName: String(fullName).trim(),
-			email: normalizedEmail,
-			phone: normalizedPhone,
-			password: passwordHash,
-			provider: 'local',
-			role: 'customer',
-			isActive: false,
-			lastLoginAt: new Date(),
-		})
+		throw new AuthServiceError('Phone already exists', 409)
 	}
 
-	const otpCode = createOtpCode()
-	const otpHash = await bcrypt.hash(otpCode, 10)
-	const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+	const passwordHash = await bcrypt.hash(password, 10)
 
-	await Otp.deleteMany({
-		userId: user._id,
-		purpose: 'register',
-	})
-
-	await Otp.create({
-		userId: user._id,
-		email: user.email,
-		purpose: 'register',
-		otpHash,
-		expiresAt,
-	})
-
-	await sendRegisterOtpEmail({
-		toEmail: user.email,
-		fullName: user.fullName,
-		otpCode,
-	})
-
-	return {
-		maskedEmail: maskEmail(user.email),
-		expiresInMinutes: 10,
-	}
-}
-
-const verifyRegisterOtpLocalUser = async ({ email, otp }) => {
-	if (!email || !otp) {
-		throw new AuthServiceError('email and otp are required', 400)
-	}
-
-	const normalizedEmail = String(email).toLowerCase().trim()
-	const otpCode = String(otp).trim()
-
-	const otpRecord = await Otp.findOne({
+	const user = await User.create({
+		fullName: String(fullName).trim(),
 		email: normalizedEmail,
-		purpose: 'register',
-		verifiedAt: null,
-		expiresAt: { $gt: new Date() },
-	}).sort({ createdAt: -1 })
-
-	if (!otpRecord) {
-		throw new AuthServiceError('OTP is invalid or expired', 400)
-	}
-
-	if (otpRecord.attempts >= 5) {
-		await Otp.deleteOne({ _id: otpRecord._id })
-		throw new AuthServiceError('OTP has exceeded maximum attempts', 400)
-	}
-
-	const isOtpValid = await bcrypt.compare(otpCode, otpRecord.otpHash)
-
-	if (!isOtpValid) {
-		otpRecord.attempts += 1
-		await otpRecord.save()
-		throw new AuthServiceError('OTP is incorrect', 400)
-	}
-
-	await Otp.deleteMany({ email: normalizedEmail, purpose: 'register' })
-
-	const user = await User.findById(otpRecord.userId)
-	if (!user) throw new AuthServiceError('User not found', 404)
-
-	user.isActive = true
-	user.lastLoginAt = new Date()
-	await user.save()
+		phone: normalizedPhone,
+		password: passwordHash,
+		provider: 'local',
+		role: 'customer',
+		isActive: true,
+		lastLoginAt: new Date(),
+	})
 
 	const accessToken = createAccessToken(user)
 
@@ -247,10 +170,6 @@ const loginLocalUser = async ({ phoneOrEmail, password }) => {
 
 	if (!user) {
 		throw new AuthServiceError('Invalid phone/email or password', 401)
-	}
-
-	if (!user.isActive) {
-		throw new AuthServiceError('Account is not activated. Please register again to verify OTP.', 401)
 	}
 
 	if (!user.password) {
@@ -356,25 +275,13 @@ const verifyForgotPasswordOtp = async ({ email, otp }) => {
 	otpRecord.verifiedAt = new Date()
 	await otpRecord.save()
 
-	const jwtSecret = process.env.JWT_SECRET || 'dev-secret-change-me'
-	const reset_token = jwt.sign({ email: normalizedEmail }, jwtSecret, { expiresIn: '15m' })
-
-	return { verified: true, reset_token }
+	return { verified: true }
 }
 
-const resetForgotPassword = async ({ resetToken, newPassword, confirmPassword }) => {
-	if (!resetToken || !newPassword || !confirmPassword) {
-		throw new AuthServiceError('resetToken, newPassword and confirmPassword are required', 400)
+const resetForgotPassword = async ({ email, newPassword, confirmPassword }) => {
+	if (!email || !newPassword || !confirmPassword) {
+		throw new AuthServiceError('email, newPassword and confirmPassword are required', 400)
 	}
-
-	const jwtSecret = process.env.JWT_SECRET || 'dev-secret-change-me'
-	let decoded;
-	try {
-		decoded = jwt.verify(resetToken, jwtSecret)
-	} catch (err) {
-		throw new AuthServiceError('Token is invalid or expired', 400)
-	}
-	const email = decoded.email
 
 	if (newPassword !== confirmPassword) {
 		throw new AuthServiceError('Confirm password does not match', 400)
@@ -389,6 +296,17 @@ const resetForgotPassword = async ({ resetToken, newPassword, confirmPassword })
 
 	if (!user) {
 		throw new AuthServiceError('Email is not registered', 404)
+	}
+
+	const verifiedOtpRecord = await Otp.findOne({
+		email: normalizedEmail,
+		purpose: 'reset-password',
+		verifiedAt: { $ne: null },
+		expiresAt: { $gt: new Date() },
+	}).sort({ verifiedAt: -1 })
+
+	if (!verifiedOtpRecord) {
+		throw new AuthServiceError('Please verify OTP before resetting password', 400)
 	}
 
 	if (user.password) {
@@ -524,7 +442,6 @@ const googleLoginOrRegisterByCode = async (authCode, redirectUri) => {
 
 module.exports = {
 	registerLocalUser,
-	verifyRegisterOtpLocalUser,
 	loginLocalUser,
 	forgotPasswordByEmail,
 	verifyForgotPasswordOtp,
