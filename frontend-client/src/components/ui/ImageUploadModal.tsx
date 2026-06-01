@@ -250,7 +250,9 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                           )}
                           <button
                             onClick={() => {
-                              window.location.href = `/product/${item.id}`
+                              window.history.pushState({}, '', `/product/${item.id}`)
+                              window.dispatchEvent(new PopStateEvent('popstate'))
+                              onClose()
                             }}
                             className="rounded-lg bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-100 transition"
                           >

@@ -1,5 +1,5 @@
 const User = require('../../models/user.model')
-const { extractDescriptor, computeDistance, isMatch } = require('../ai/face.service')
+const { computeDistance, isMatch } = require('../ai/face.service')
 const jwt = require('jsonwebtoken')
 const chatService = require('../chat/chat.service')
 
@@ -31,8 +31,9 @@ const sanitizeUser = (user) => ({
 
 /**
  * Đăng ký Face ID cho người dùng đã đăng nhập.
+ * Nhận 3 vector từ Client gửi lên.
  * 
- * FIX 1: Cross-check 3 ảnh phải cùng 1 người trước khi lưu DB.
+ * FIX 1: Cross-check 3 vector phải cùng 1 người trước khi lưu DB.
  * FIX 2: Ghi thêm metadata phiên bản mô hình (faceDescriptorVersion).
  */
 const enrollFaceId = async (userId, faceDescriptors) => {
@@ -60,7 +61,7 @@ const enrollFaceId = async (userId, faceDescriptors) => {
 			distances: { d01: +d01.toFixed(4), d02: +d02.toFixed(4), d12: +d12.toFixed(4) },
 			timestamp: new Date().toISOString(),
 		}))
-		const error = new Error('Ba ảnh không khớp với cùng một người. Vui lòng chụp lại trong điều kiện ánh sáng tốt.')
+		const error = new Error('Ba góc khuôn mặt không khớp cùng một người. Vui lòng chụp lại trong điều kiện ánh sáng tốt.')
 		error.statusCode = 400
 		throw error
 	}
@@ -179,6 +180,7 @@ const loginWithFaceId = async (faceDescriptors) => {
 
 			totalBestDist += minDistForThisDesc
 		}
+	}
 
 		if (allFound) {
 			const avgDist = totalBestDist / loginDescriptors.length

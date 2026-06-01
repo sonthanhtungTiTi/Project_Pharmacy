@@ -9,6 +9,7 @@ const router = express.Router()
 router.use(authenticateClientJwt)
 
 router.get('/conversation', chatController.getMyConversation)
+router.delete('/conversation', chatController.clearMyConversation)
 router.get('/messages', chatController.getMyMessages)
 router.post('/agent', chatController.handleChatWithAI)
 router.post('/message', chatController.sendMessage)

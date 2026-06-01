@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const axios = require('axios')
 
 const Product = require('../../models/product.model')
 
@@ -223,17 +224,63 @@ const getProductDetail = async (productId) => {
 	return product
 }
 
-const mockExtractTextFromImage = async (imageBuffer) => {
-	// Giả lập độ trễ của API OCR (Google Cloud Vision, Tesseract...)
-	await new Promise(resolve => setTimeout(resolve, 1500))
+const extractTextFromImage = async (imageBuffer) => {
+	const geminiApiKey = process.env.GEMINI_API_KEY
 	
-	// Trả về các cụm từ (tên thuốc) phân cách bằng dấu phẩy
-	return "Oztis giảm triệu chứng thoái hóa khớp, Paracetamol 500mg, Thuốc không tồn tại XYZ"
+	if (!geminiApiKey) {
+		console.warn('GEMINI_API_KEY is not set in environment variables')
+		return ""
+	}
+
+	try {
+		const base64Data = imageBuffer.toString('base64')
+		const response = await axios.post(
+			`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+			{
+				contents: [
+					{
+						parts: [
+							{
+								text: "Identify the medicines or symptoms written in this image. Output ONLY a comma-separated list of the extracted Vietnamese phrases (e.g. 'Paracetamol, đau đầu, sổ mũi'). Do not add any other text or formatting. If there are no medicines or symptoms, output nothing."
+							},
+							{
+								inline_data: {
+									mime_type: "image/jpeg",
+									data: base64Data
+								}
+							}
+						]
+					}
+				],
+				generationConfig: {
+					temperature: 0.1,
+					topK: 1,
+					topP: 1
+				}
+			},
+			{
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			}
+		)
+
+		if (response.data && response.data.candidates && response.data.candidates.length > 0) {
+			const candidate = response.data.candidates[0]
+			if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+				return String(candidate.content.parts[0].text || '').trim()
+			}
+		}
+		return ""
+	} catch (error) {
+		console.error("Gemini OCR Error:", error?.response?.data || error.message)
+		return ""
+	}
 }
 
 const searchProductsByImage = async (imageBuffer) => {
 	try {
-		const extractedText = await mockExtractTextFromImage(imageBuffer)
+		const extractedText = await extractTextFromImage(imageBuffer)
 		
 		// Tiền xử lý text: Tách theo dấu phẩy để lấy chính xác các cụm từ/tên thuốc
 		// thay vì tách theo từng khoảng trắng gây nhiễu

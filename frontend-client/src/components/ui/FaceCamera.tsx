@@ -176,22 +176,6 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 		}
 	}, [modelsLoaded])
 
-	// ─── 3. Chụp snapshot chất lượng cao ────────────────────────────────────
-	const captureSnapshot = async (): Promise<Blob | null> => {
-		return new Promise((resolve) => {
-			if (!videoRef.current) { resolve(null); return }
-			const canvas = document.createElement('canvas')
-			canvas.width = 480
-			canvas.height = 360
-			const ctx = canvas.getContext('2d')
-			if (ctx) {
-				ctx.drawImage(videoRef.current, 0, 0, 480, 360)
-				canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92)
-			} else {
-				resolve(null)
-			}
-		})
-	}
 
 	// ─── 4. Kết thúc: gửi tất cả descriptor về parent ───────────────────────
 	const finishCapture = useCallback(async () => {
@@ -283,6 +267,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 				setTimeout(() => setStableState('idle'), 500) // Flash ✓ trong 500ms
 
 				const nextStep = currentIndex + 1
+				const currentDescriptor = Array.from(detection.descriptor)
 
 				if (nextStep < STEPS.length) {
 					// Lấy vector đặc trưng 128 chiều
@@ -299,7 +284,7 @@ export default function FaceCamera({ mode = 'enroll', onCapture, onClose }: Face
 					}
 					setStepIndex(nextStep)
 					setMessage('Hoàn thành! Đang xử lý khuôn mặt...')
-					await finishCapture()
+					await finishCapture(currentDescriptor)
 				}
 				// ─────────────────────────────────────────────────────────────
 

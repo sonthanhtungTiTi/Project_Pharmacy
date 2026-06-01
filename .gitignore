@@ -4,13 +4,7 @@
 node_modules/
 **/node_modules/
 
-# Build outputs
-dist/
-**/dist/
-build/
-**/build/
-out/
-.next/
+
 
 # Environment files
 .env
@@ -37,7 +31,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
-
+*.docx
 # Security and sensitive data
 *.pem
 *.key

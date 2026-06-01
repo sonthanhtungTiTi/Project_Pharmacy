@@ -470,7 +470,7 @@ function HomePage({ onOpenProductDetail, onOpenCategory, onOpenHealthNews }: Hom
 											const meta = buildCardMeta(item)
 
 											return (
-												<div key={item.id} className="w-[200px] flex-none snap-start md:w-[220px] lg:w-[240px]">
+												<div key={item.id} className="w-[200px] flex-none snap-start md:w-[220px] lg:w-[220px]">
 													<ProductCard
 														productCode={item.medicineCode}
 														productId={item.id}

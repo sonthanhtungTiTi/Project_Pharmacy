@@ -127,6 +127,15 @@ export const getMyChatConversation = async (limit = 40) => {
 	return parseApiResponse<ChatConversationPayload>(response)
 }
 
+export const clearChatConversation = async () => {
+	const response = await fetch(`${API_BASE_URL}/client/chat/conversation`, {
+		method: 'DELETE',
+		headers: getAuthHeaders(),
+	})
+
+	return parseApiResponse<null>(response)
+}
+
 export const requestHumanSupport = async (conversationId: string, reason = '') => {
 	const response = await fetch(`${API_BASE_URL}/client/chat/request-human`, {
 		method: 'POST',

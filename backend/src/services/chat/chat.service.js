@@ -418,6 +418,17 @@ const getClientConversationSnapshot = async (clientId, { limit = 40 } = {}) => {
     }
 }
 
+const clearClientConversation = async (clientId) => {
+    ensureObjectId(clientId, 'clientId')
+    const convs = await ChatConversation.find({ clientId })
+    const convIds = convs.map(c => c._id)
+    
+    if (convIds.length > 0) {
+        await ChatMessage.deleteMany({ conversationId: { $in: convIds } })
+        await ChatConversation.deleteMany({ clientId })
+    }
+}
+
 const getClientMessages = async (clientId, conversationId, { limit = 40 } = {}) => {
     ensureObjectId(clientId, 'clientId')
     ensureObjectId(conversationId, 'conversationId')
@@ -665,7 +676,7 @@ const toProductCard = (doc) => {
         productName: doc.productName || doc.medicineName || 'San pham',
         imageUrl: normalizeImageField(cleanedImages[0]),
         price: Number(doc.price || 0),
-        productUrl: `http://localhost:5173/product/${id}`,
+        productUrl: `https://nhathuocqt.shop/product/${id}`,
     }
 }
 
@@ -1624,6 +1635,8 @@ module.exports = {
     ChatServiceError,
     SUPPORT_ROLES,
     INTENTS,
+    clearClientConversation,
+    findOrCreateActiveConversation,
     serializeConversation,
     serializeMessage,
     getClientConversationSnapshot,

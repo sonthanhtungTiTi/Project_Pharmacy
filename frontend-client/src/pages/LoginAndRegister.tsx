@@ -43,6 +43,9 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 		toast.success('Đăng nhập thành công')
 		onAuthSuccess?.(user)
 		onClose()
+		setTimeout(() => {
+			window.location.reload()
+		}, 500)
 	}
 
 	const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {

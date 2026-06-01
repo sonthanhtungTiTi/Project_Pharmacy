@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import LoginAndRegister from '../../pages/LoginAndRegister'
 import type { AuthUser } from '../../services/auth.service'
 import type { ProductItem } from '../../services/product.service'
+import { clearChatConversation } from '../../services/chat.service'
 import Footer from './footer'
 import Header from './header'
 
@@ -84,7 +85,13 @@ function PharmacyLayout({
 		return () => window.removeEventListener('storage', handleStorage)
 	}, [])
 
-	const handleLogout = () => {
+	const handleLogout = async () => {
+		try {
+			// Ignore error if not logged in or token expired
+			await clearChatConversation().catch(() => {})
+		} catch (e) {
+			console.error('Failed to clear chat on logout', e)
+		}
 		localStorage.removeItem('clientAccessToken')
 		localStorage.removeItem('clientUser')
 		setAuthUser(null)
@@ -126,11 +133,10 @@ function PharmacyLayout({
 									<button
 										type="button"
 										onClick={onSelectAllCategories}
-										className={`mb-3 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-											!selectedCategoryId
+										className={`mb-3 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${!selectedCategoryId
 												? 'bg-[#e9f9ed] font-semibold text-[#1f9542]'
 												: 'text-slate-700 hover:bg-[#f2fbf4] hover:text-[#1f9542]'
-										}`}
+											}`}
 									>
 										Tat ca danh muc
 										<span aria-hidden="true">&gt;</span>
@@ -144,11 +150,10 @@ function PharmacyLayout({
 												id={`category-${item._id}`}
 												data-category-id={item._id}
 												onClick={() => onCategorySelect?.(item)}
-												className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition ${
-													selectedCategoryId === item._id
+												className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition ${selectedCategoryId === item._id
 														? 'bg-[#e9f9ed] font-semibold text-[#1f9542]'
 														: 'hover:bg-[#f2fbf4] hover:text-[#1f9542]'
-												}`}
+													}`}
 											>
 												{item.categoryName}
 												<span aria-hidden="true">&gt;</span>

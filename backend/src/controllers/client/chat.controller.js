@@ -92,6 +92,24 @@ const getMyConversation = async (req, res) => {
 	}
 }
 
+const clearMyConversation = async (req, res) => {
+	try {
+		const userId = req.user?.userId
+		await chatService.clearClientConversation(userId)
+
+		return res.status(200).json({
+			success: true,
+			message: 'Conversation cleared successfully'
+		})
+	} catch (error) {
+		return res.status(error.statusCode || 500).json({
+			success: false,
+			message: error.message || 'Clear conversation failed',
+			error: error.message,
+		})
+	}
+}
+
 const getMyMessages = async (req, res) => {
 	try {
 		const userId = req.user?.userId
@@ -287,6 +305,7 @@ const uploadChatImage = async (req, res) => {
 
 module.exports = {
 	getMyConversation,
+	clearMyConversation,
 	getMyMessages,
 	requestHumanSupport,
 	sendMessage,
