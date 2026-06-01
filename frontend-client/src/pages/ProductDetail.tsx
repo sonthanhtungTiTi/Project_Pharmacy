@@ -173,7 +173,12 @@ function ProductDetail({ productId, onBackHome }: ProductDetailProps) {
 				setConsultationSent(true)
 				toast.success('Yêu cầu đã gửi! Nhân viên sẽ tư vấn bạn qua khung chat.')
 				setAddToCartMessage('')
-				window.dispatchEvent(new CustomEvent('openChatbot'))
+				window.dispatchEvent(new CustomEvent('openChatbot', {
+					detail: {
+						message: `Tôi cần tư vấn về sản phẩm: ${product.productName}`,
+						imageBase64: prescriptionUrl
+					}
+				}))
 			} else {
 				toast.error(data.message || 'Lỗi khi gửi yêu cầu')
 				setAddToCartMessage('')

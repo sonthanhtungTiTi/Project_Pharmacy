@@ -5,6 +5,7 @@ import { faPhone, faUsers, faVideo } from '@fortawesome/free-solid-svg-icons'
 import adminUserService from '../services/admin-user.service'
 import type { AdminUserItem } from '../services/admin-user.service'
 import { useAuthStore } from '../stores/authStore'
+import toast from 'react-hot-toast'
 import adminChatService, {
 	type ChatConversation,
 	type ChatConversationListItem,
@@ -468,10 +469,11 @@ export default function Support() {
         return
       }
       mergeConversationUpdate(payload.conversation)
-      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg')
-      audio.play().catch(() => {
-        // Trinh duyet co the block autoplay neu user chua tuong tac
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/dinner_bell_triangle.ogg')
+      audio.play().catch((err) => {
+        console.warn('Cannot play audio:', err)
       })
+      toast.success('Khách hàng yêu cầu nhân viên tư vấn!', { duration: 5000, position: 'top-right' })
     }
 
     const onMessageNew = (payload: { conversationId?: string; message?: ChatMessage }) => {
@@ -946,7 +948,7 @@ export default function Support() {
                             >
                               <div className="flex items-center gap-2">
                                 {isCallLog && <FontAwesomeIcon icon={faVideo} className={`text-sm ${isAdmin ? 'text-green-600' : 'text-gray-600'}`} />}
-                                <p className="text-sm leading-5 whitespace-pre-wrap font-medium">{message.content}</p>
+                                <p className="text-sm leading-5 whitespace-pre-wrap font-medium">{String(message.content)}</p>
                               </div>
                               {imageUrl && (
                                 <button
@@ -997,12 +999,16 @@ export default function Support() {
                   <button
                     type="button"
                     onClick={() => {
+                        const peerId = selectedConversation.clientId || (selectedConversation.client as any)?._id || selectedConversation.client?.id
+                        const consultationId = selectedConversation.id
+                        console.log('[DEBUG-CALL] Admin clicking call button:', { peerId, consultationId, selectedConversation })
+                        
                         window.dispatchEvent(new CustomEvent('admin:initiate-consultation-call', {
                             detail: {
-                                peerId: selectedConversation.clientId || (selectedConversation.client as any)?._id || selectedConversation.client?.id,
+                                peerId,
                                 peerName: selectedConversation.client?.fullName || 'Khách hàng',
                                 callType: 'video',
-                                consultationId: selectedConversation.id
+                                consultationId
                             }
                         }))
                     }}

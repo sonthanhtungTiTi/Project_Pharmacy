@@ -325,6 +325,7 @@ const setupCallHandlers = (io) => {
             }
 
             if (!isUserOnline(targetUserId)) {
+                console.log('[CALL-DEBUG] target offline:', targetUserId)
                 socket.emit('call:unavailable', {
                     callId,
                     targetUserId,
@@ -338,6 +339,7 @@ const setupCallHandlers = (io) => {
             }
 
             if (busyUsers.has(targetUserId) || busyUsers.has(callerUserId)) {
+                console.log('[CALL-DEBUG] user busy:', { targetUserId, callerUserId })
                 socket.emit('user-busy', {
                     callId,
                     targetUserId,
@@ -350,6 +352,7 @@ const setupCallHandlers = (io) => {
                 return
             }
 
+            console.log('[CALL-DEBUG] call accepted by server')
             callSessions.set(callId, {
                 callId,
                 callerId: callerUserId,

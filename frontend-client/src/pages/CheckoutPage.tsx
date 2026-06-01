@@ -285,10 +285,13 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 							<h2 className="text-lg font-bold text-slate-800">Thông tin nhận hàng</h2>
 							<button
 								type="button"
-								onClick={() => setIsAddressPickerOpen((current) => !current)}
+								onClick={() => {
+									window.history.pushState({}, '', '/profile?section=address&returnTo=cart')
+									window.dispatchEvent(new PopStateEvent('popstate'))
+								}}
 								className="rounded-lg border border-[#86c790] px-3 py-1.5 text-sm font-semibold text-[#1f9542]"
 							>
-								{isAddressPickerOpen ? 'Đóng chọn địa chỉ' : 'Chỉnh sửa địa chỉ'}
+								Chỉnh sửa địa chỉ
 							</button>
 						</div>
 

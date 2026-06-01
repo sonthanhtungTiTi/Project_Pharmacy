@@ -60,7 +60,9 @@ function CallProvider({ children }: { children: React.ReactNode }) {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      upgrade: true,
+      secure: SOCKET_URL.startsWith('https'),
     })
 
     newSocket.on('connect', () => {
@@ -182,12 +184,14 @@ function CallProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleInitiateConsultationCall = (e: Event) => {
       const detail = (e as CustomEvent).detail || {}
+      console.log('[DEBUG-CALL] App.tsx received event:', detail)
       const peerId = String(detail.peerId || '')
       const peerName = detail.peerName || 'Khách hàng'
       const callType = detail.callType === 'voice' ? 'voice' : 'video'
       const consultationId = String(detail.consultationId || '')
 
       if (!peerId || !consultationId) {
+        console.error('[DEBUG-CALL] Missing peerId or consultationId', { peerId, consultationId })
         return
       }
 

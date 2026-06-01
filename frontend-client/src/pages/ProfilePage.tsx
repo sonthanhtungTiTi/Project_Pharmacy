@@ -53,6 +53,15 @@ function ProfilePage({ onBackHome }: ProfilePageProps) {
 		)
 	}
 
+	const query = new URLSearchParams(window.location.search)
+	const returnTo = query.get('returnTo')
+	const section = query.get('section') as any
+
+	const goBackToCart = () => {
+		window.history.pushState({}, '', '/gio-hang')
+		window.dispatchEvent(new PopStateEvent('popstate'))
+	}
+
 	return (
 		<PharmacyLayout categories={[]} hideSidebar>
 			<Profile
@@ -63,8 +72,19 @@ function ProfilePage({ onBackHome }: ProfilePageProps) {
 					setAuthUser(updatedUser)
 				}}
 				mode="page"
-				initialSection="orders"
+				initialSection={section || 'orders'}
 			/>
+			{returnTo === 'cart' && (
+				<div className="mt-6 flex justify-center pb-8">
+					<button
+						type="button"
+						onClick={goBackToCart}
+						className="rounded-xl bg-[#35b548] px-6 py-3 font-semibold text-white shadow-sm transition hover:brightness-95"
+					>
+						Quay lại giỏ hàng để tiếp tục mua
+					</button>
+				</div>
+			)}
 		</PharmacyLayout>
 	)
 }

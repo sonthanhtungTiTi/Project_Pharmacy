@@ -126,11 +126,11 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
     // Khởi tạo đối tượng âm thanh
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            incomingAudioRef.current = new Audio('https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg')
+            const ringtoneUrl = 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
+            incomingAudioRef.current = new Audio(ringtoneUrl)
             incomingAudioRef.current.loop = true
             
-            // Âm thanh đổ chuông chờ khi gọi đi (có thể thay link khác nếu muốn)
-            outgoingAudioRef.current = new Audio('https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg')
+            outgoingAudioRef.current = new Audio(ringtoneUrl)
             outgoingAudioRef.current.loop = true
         }
         return () => {
@@ -463,9 +463,7 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
                     callType: normalizedType,
                 }
 
-                setCallPhase('RINGING')
-
-                const ack = await new Promise<{ ok?: boolean }>((resolve) => {
+                const ack = await new Promise<{ ok?: boolean; reason?: string }>((resolve) => {
                     let settled = false
                     const timeout = setTimeout(() => {
                         if (!settled) {
@@ -489,21 +487,30 @@ export const useWebRTC = (socket: any, user: any, options?: UseWebRTCOptions) =>
                                 avatar: getUserAvatar(user),
                             },
                         },
-                        (response: { ok?: boolean }) => {
+                        (response: { ok?: boolean; reason?: string }) => {
                             console.log('[CALL-DEBUG] 3b. Server ACK:', response)
                             if (settled) return
                             settled = true
                             clearTimeout(timeout)
-                            resolve(response || { ok: false })
+                            resolve(response as { ok?: boolean; reason?: string } || { ok: false })
                         }
                     )
                 })
 
                 if (!ack?.ok) {
+                    toast.error(
+                        ack?.reason === 'TARGET_OFFLINE'
+                            ? 'Người nhận đang offline'
+                            : ack?.reason === 'USER_BUSY'
+                                ? 'Người nhận đang bận'
+                                : 'Không thể thực hiện cuộc gọi',
+                        { duration: 4000 }
+                    )
                     resetCallState('ENDED')
                     return
                 }
 
+                setCallPhase('RINGING')
                 startOutgoingTimeout(callId, targetUserId)
             } catch (error) {
                 resetCallState('ENDED')
