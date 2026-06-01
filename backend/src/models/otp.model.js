@@ -5,7 +5,7 @@ const otpSchema = new mongoose.Schema(
 		userId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: 'User',
-			required: true,
+			required: false, // Thay đổi thành false vì lúc đăng ký chưa có userId
 			index: true,
 		},
 		email: {
@@ -17,7 +17,7 @@ const otpSchema = new mongoose.Schema(
 		},
 		purpose: {
 			type: String,
-			enum: ['reset-password'],
+			enum: ['reset-password', 'register'], // Thêm 'register'
 			required: true,
 		},
 		otpHash: {

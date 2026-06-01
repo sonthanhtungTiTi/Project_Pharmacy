@@ -84,6 +84,9 @@ export const useAuthStore = create<AuthStoreState>((set) => {
           loading: false,
           error: null,
         })
+        
+        // Reload lại trang web để cập nhật thông tin (clear mọi state)
+        window.location.href = '/login'
       }
     },
 

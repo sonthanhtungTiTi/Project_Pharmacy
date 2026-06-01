@@ -930,18 +930,24 @@ export default function Support() {
                         className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}
                       >
                         {(() => {
+                          const isCallLog = message.meta?.isCallLog
                           const productSuggestions = parseProductSuggestions(message)
                           return (
                             <div
                               className={`max-w-[78%] rounded-2xl px-3 py-2 shadow-sm ${
-                                isAdmin
-                                  ? 'bg-green-600 text-white'
-                                  : isUser
-                                    ? 'bg-white text-gray-800'
-                                    : 'bg-blue-600 text-white'
+                                isCallLog 
+                                  ? isAdmin ? 'bg-green-100 text-green-900 border border-green-200' : 'bg-gray-100 text-gray-900 border border-gray-200'
+                                  : isAdmin
+                                    ? 'bg-green-600 text-white'
+                                    : isUser
+                                      ? 'bg-white text-gray-800'
+                                      : 'bg-blue-600 text-white'
                               }`}
                             >
-                              <p className="text-sm leading-5 whitespace-pre-wrap">{message.content}</p>
+                              <div className="flex items-center gap-2">
+                                {isCallLog && <FontAwesomeIcon icon={faVideo} className={`text-sm ${isAdmin ? 'text-green-600' : 'text-gray-600'}`} />}
+                                <p className="text-sm leading-5 whitespace-pre-wrap font-medium">{message.content}</p>
+                              </div>
                               {imageUrl && (
                                 <button
                                   type="button"
@@ -973,7 +979,7 @@ export default function Support() {
                                   ))}
                                 </div>
                               )}
-                              <p className={`mt-1 text-[10px] ${isAdmin || !isUser ? 'text-white/80' : 'text-gray-500'}`}>
+                              <p className={`mt-2 text-[10px] ${isCallLog ? (isAdmin ? 'text-green-500' : 'text-gray-500') : (isAdmin || !isUser ? 'text-white/80' : 'text-gray-500')}`}>
                                 {message.senderName || (isAdmin ? currentUserName : isUser ? 'Khách hàng' : 'AI')} • {formatDateTime(message.createdAt)}
                               </p>
                             </div>

@@ -1,6 +1,6 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '')
 
-const getAccessToken = () => localStorage.getItem('clientAccessToken') || ''
+const getAccessToken = () => localStorage.getItem('adminAccessToken') || ''
 
 const getAuthHeaders = () => {
 	const accessToken = getAccessToken()
@@ -17,7 +17,7 @@ const getAuthHeaders = () => {
  * Cần gửi JWT Token và mảng faceDescriptors
  */
 export const enrollFaceId = async (faceDescriptors: number[][]) => {
-	const response = await fetch(`${API_BASE_URL}/client/auth/face/enroll`, {
+	const response = await fetch(`${API_BASE_URL}/admin/auth/face/enroll`, {
 		method: 'POST',
 		headers: {
 			...getAuthHeaders(),
@@ -38,7 +38,7 @@ export const enrollFaceId = async (faceDescriptors: number[][]) => {
  * Tắt tính năng Face ID
  */
 export const disableFaceId = async () => {
-	const response = await fetch(`${API_BASE_URL}/client/auth/face/disable`, {
+	const response = await fetch(`${API_BASE_URL}/admin/auth/face/disable`, {
 		method: 'POST',
 		headers: {
 			...getAuthHeaders(),
@@ -59,7 +59,7 @@ export const disableFaceId = async () => {
  * Gửi 3 mảng faceDescriptors (thẳng, trái, phải) để backend kiểm tra chống giả mạo ảnh tĩnh
  */
 export const loginWithFaceId = async (faceDescriptors: number[][]) => {
-	const response = await fetch(`${API_BASE_URL}/client/auth/face/login`, {
+	const response = await fetch(`${API_BASE_URL}/admin/auth/face/login`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',

@@ -237,12 +237,12 @@ export default function VideoCallOverlay({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-gray-900">
-            <div className="flex-1 relative">
+        <div className="fixed inset-0 z-50 flex flex-col bg-gray-900 overflow-hidden">
+            <div className="flex-1 relative min-h-0 bg-black">
                 {isVideoCall && hasRemoteVideo ? (
-                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-contain" />
                 ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-gray-900 to-zinc-900 text-white">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-gray-900 to-zinc-900 text-white">
                         <div className="w-32 h-32 rounded-full bg-white/10 border-4 border-white/30 flex items-center justify-center overflow-hidden mb-4">
                             {peerAvatarUrl ? (
                                 <img src={peerAvatarUrl} alt={peerName} className="w-full h-full object-cover" />
@@ -284,7 +284,7 @@ export default function VideoCallOverlay({
                 )}
             </div>
 
-            <div className="bg-gray-800/90 backdrop-blur-sm px-6 py-4 flex items-center justify-center gap-4">
+            <div className="bg-gray-800/90 backdrop-blur-sm px-6 py-4 flex items-center justify-center gap-4 shrink-0 relative z-10">
                 <button
                     className={`p-4 rounded-full transition-all ${isMuted ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gray-700 hover:bg-gray-600'} text-white`}
                     onClick={onMicToggle}

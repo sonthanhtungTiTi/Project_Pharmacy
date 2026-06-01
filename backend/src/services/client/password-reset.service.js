@@ -34,7 +34,7 @@ const sendPasswordResetOTP = async ({ email, phoneOrEmail }) => {
 	}
 
 	// Kiểm tra xem user có password không (Google-only account)
-	if (!user.password && user.provider === 'google') {
+	if (!user.password && user.googleId) {
 		throw new PasswordResetError('Tài khoản này chỉ đăng nhập bằng Google. Vui lòng đăng nhập với Google để đặt lại mật khẩu.', 400)
 	}
 
@@ -54,8 +54,17 @@ const sendPasswordResetOTP = async ({ email, phoneOrEmail }) => {
 
 	await otp.save()
 
-	// TODO: Gửi OTP qua email (implement email service)
-	console.log(`[PASSWORD RESET OTP] Email: ${user.email}, OTP: ${otpCode}`)
+	// Gửi OTP qua email
+	const { sendResetOtpEmail } = require('./mail.service')
+	try {
+		await sendResetOtpEmail({
+			toEmail: user.email,
+			fullName: user.fullName,
+			otpCode,
+		})
+	} catch (emailError) {
+		console.error('Lỗi gửi email:', emailError.message)
+	}
 
 	return {
 		message: 'OTP đã được gửi đến email của bạn',

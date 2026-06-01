@@ -104,7 +104,7 @@ function Header({
 
 	return (
 		<>
-			<div className="bg-[#22b245] w-full relative z-[988]">
+			<div className="bg-[#22b245] w-full relative z-0">
 				<div className="overflow-hidden">
 					<div
 						className="flex w-full transition-transform duration-700 ease-in-out"

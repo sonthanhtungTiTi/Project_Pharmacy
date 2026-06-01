@@ -16,6 +16,8 @@ import FloatingContactButton from './components/ui/FloatingContactButton'
 import ClientChatWidget from './components/chat/ClientChatWidget'
 import { useWebRTCCall } from './hooks/useWebRTCCall'
 import type { IncomingCallData } from './hooks/useWebRTCCall'
+import { useFaceDetection } from './hooks/useFaceDetection'
+
 
 // New Functional Modules
 import FamilyMedicineCabinet from './pages/FamilyMedicineCabinet'
@@ -93,6 +95,9 @@ function App() {
 
   const [isEventPage, setIsEventPage] = useState(isEventPagePath())
   const [activeEventSlug, setActiveEventSlug] = useState(getEventSlugFromPath())
+
+  // Tải trước mô hình AI cho tính năng Face ID
+  useFaceDetection()
 
   // ==================== CALL TARGET SELECTOR ====================
   const [isChatWidgetOpen, setIsChatWidgetOpen] = useState(false)
@@ -214,6 +219,9 @@ function App() {
     toggleVideo,
   } = useWebRTCCall(socket, user, {
     onPhaseChange: (newPhase) => {
+      if (newPhase === 'RINGING' || newPhase === 'IN_CALL') {
+        setIsChatWidgetOpen(false)
+      }
       if (newPhase === 'IN_CALL') {
         if (durationRef.current) {
           clearInterval(durationRef.current)

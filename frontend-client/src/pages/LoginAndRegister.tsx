@@ -9,6 +9,7 @@ import {
 	loginWithForm,
 	loginWithGoogle,
 	registerWithForm,
+	sendRegistrationOtp,
 	type AuthUser,
 } from '../services/auth.service'
 import FaceCamera from '../components/ui/FaceCamera'
@@ -30,6 +31,8 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
 	const [confirmPassword, setConfirmPassword] = useState('')
+	const [otp, setOtp] = useState('')
+	const [isSendingOtp, setIsSendingOtp] = useState(false)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
@@ -61,6 +64,23 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 		}
 	}
 
+	const handleSendOtp = async () => {
+		if (!email) {
+			toast.error('Vui lòng nhập email trước khi nhận OTP')
+			return
+		}
+		
+		try {
+			setIsSendingOtp(true)
+			await sendRegistrationOtp({ email })
+			toast.success('Đã gửi mã OTP đăng ký. Vui lòng kiểm tra email (có hiệu lực 10 phút).', { duration: 5000 })
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'Gửi mã OTP thất bại')
+		} finally {
+			setIsSendingOtp(false)
+		}
+	}
+
 	const handleSubmitLocalAuth = (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
 
@@ -69,12 +89,12 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 				setIsSubmitting(true)
 
 				if (isRegisterMode) {
-					if (!fullName || !phone || !email || !password || !confirmPassword) {
-						throw new Error('Vui lòng nhập đầy đủ thong tin dang ky')
+					if (!fullName || !phone || !email || !password || !confirmPassword || !otp) {
+						throw new Error('Vui lòng nhập đầy đủ thông tin và mã OTP')
 					}
 
 					if (password !== confirmPassword) {
-						throw new Error('Mật khẩu nhập lai không khớp')
+						throw new Error('Mật khẩu nhập lại không khớp')
 					}
 
 					const result = await registerWithForm({
@@ -82,6 +102,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 						email,
 						phone,
 						password,
+						otp,
 					})
 
 					toast.success('Đăng ký tai khoan thành công')
@@ -190,16 +211,39 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 								)}
 
 								{isRegisterMode && (
-									<label className="block">
-										<span className="mb-1 block text-sm font-medium text-slate-600">Email</span>
-										<input
-											type="email"
-											value={email}
-											onChange={(event) => setEmail(event.target.value)}
-											placeholder="Nhập email"
-											className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
-										/>
-									</label>
+									<>
+										<label className="block">
+											<span className="mb-1 block text-sm font-medium text-slate-600">Email</span>
+											<div className="flex gap-2">
+												<input
+													type="email"
+													value={email}
+													onChange={(event) => setEmail(event.target.value)}
+													placeholder="Nhập email"
+													className="h-11 w-full flex-1 rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a]"
+												/>
+												<button
+													type="button"
+													disabled={isSendingOtp}
+													onClick={handleSendOtp}
+													className="h-11 whitespace-nowrap rounded-xl bg-slate-100 px-4 text-sm font-semibold text-[#1f9542] transition hover:bg-slate-200 disabled:opacity-50"
+												>
+													{isSendingOtp ? 'Đang gửi...' : 'Gửi mã OTP'}
+												</button>
+											</div>
+										</label>
+										<label className="block">
+											<span className="mb-1 block text-sm font-medium text-slate-600">Mã xác nhận OTP</span>
+											<input
+												type="text"
+												value={otp}
+												onChange={(event) => setOtp(event.target.value)}
+												placeholder="Nhập mã 6 số từ email"
+												className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-[#72d27a] tracking-widest"
+												maxLength={6}
+											/>
+										</label>
+									</>
 								)}
 
 								<label className="block">
@@ -287,13 +331,7 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 								{!isRegisterMode && (
 									<button
 										type="button"
-										onClick={() => {
-											if (!phone.trim()) {
-												toast.error('Vui lòng nhập Email hoặc Số điện thoại trước khi dùng Face ID')
-												return
-											}
-											setShowFaceCamera(true)
-										}}
+										onClick={() => setShowFaceCamera(true)}
 										className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#4ade80] bg-[#f0fdf4] text-sm font-bold text-[#166534] transition hover:bg-[#dcfce7]"
 									>
 										<span className="text-lg">📷</span> Đăng nhập bằng Face ID
@@ -322,10 +360,10 @@ function LoginAndRegister({ onClose, onAuthSuccess }: LoginAndRegisterProps) {
 				<FaceCamera 
 					mode="login"
 					onClose={() => setShowFaceCamera(false)}
-					onCapture={async (blob) => {
+					onCapture={async (descriptors) => {
 						try {
 							setIsSubmitting(true)
-							const result = await loginWithFaceId(phone.trim(), blob)
+							const result = await loginWithFaceId(descriptors)
 							handleAuthSuccess(result.user, result.accessToken)
 						} catch (error: any) {
 							toast.error(error.message || 'Đăng nhập Face ID thất bại')

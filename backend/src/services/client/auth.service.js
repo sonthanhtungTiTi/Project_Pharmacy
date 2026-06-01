@@ -1,7 +1,7 @@
 const { OAuth2Client } = require('google-auth-library')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
-const { sendResetOtpEmail } = require('./mail.service')
+const { sendResetOtpEmail, sendRegistrationOtpEmail } = require('./mail.service')
 
 const User = require('../../models/user.model')
 const Otp = require('../../models/otp.model')
@@ -113,9 +113,49 @@ const updateUserProfile = async (userId, profilePayload) => {
 	return sanitizeUser(user)
 }
 
-const registerLocalUser = async ({ fullName, email, phone, password }) => {
-	if (!fullName || !email || !phone || !password) {
-		throw new AuthServiceError('fullName, email, phone and password are required', 400)
+const sendRegistrationOtp = async ({ email }) => {
+	if (!email) {
+		throw new AuthServiceError('email is required', 400)
+	}
+
+	const normalizedEmail = String(email).toLowerCase().trim()
+	const existingUser = await User.findOne({ email: normalizedEmail })
+
+	if (existingUser) {
+		throw new AuthServiceError('Email already exists', 409)
+	}
+
+	const otpCode = createOtpCode()
+	const otpHash = await bcrypt.hash(otpCode, 10)
+	const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+
+	await Otp.deleteMany({
+		email: normalizedEmail,
+		purpose: 'register',
+		verifiedAt: null,
+	})
+
+	await Otp.create({
+		email: normalizedEmail,
+		purpose: 'register',
+		otpHash,
+		expiresAt,
+	})
+
+	await sendRegistrationOtpEmail({
+		toEmail: normalizedEmail,
+		otpCode,
+	})
+
+	return {
+		maskedEmail: maskEmail(normalizedEmail),
+		expiresInMinutes: 10,
+	}
+}
+
+const registerLocalUser = async ({ fullName, email, phone, password, otp }) => {
+	if (!fullName || !email || !phone || !password || !otp) {
+		throw new AuthServiceError('fullName, email, phone, password and otp are required', 400)
 	}
 
 	if (password.length < 6) {
@@ -124,6 +164,7 @@ const registerLocalUser = async ({ fullName, email, phone, password }) => {
 
 	const normalizedEmail = String(email).toLowerCase().trim()
 	const normalizedPhone = String(phone).trim()
+	const otpCodeStr = String(otp).trim()
 
 	const existingUser = await User.findOne({
 		$or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
@@ -135,6 +176,34 @@ const registerLocalUser = async ({ fullName, email, phone, password }) => {
 		}
 		throw new AuthServiceError('Phone already exists', 409)
 	}
+
+	// Xác thực OTP
+	const otpRecord = await Otp.findOne({
+		email: normalizedEmail,
+		purpose: 'register',
+		verifiedAt: null,
+		expiresAt: { $gt: new Date() },
+	}).sort({ createdAt: -1 })
+
+	if (!otpRecord) {
+		throw new AuthServiceError('OTP is invalid or expired', 400)
+	}
+
+	if (otpRecord.attempts >= 5) {
+		await Otp.deleteOne({ _id: otpRecord._id })
+		throw new AuthServiceError('OTP has exceeded maximum attempts', 400)
+	}
+
+	const isOtpValid = await bcrypt.compare(otpCodeStr, otpRecord.otpHash)
+
+	if (!isOtpValid) {
+		otpRecord.attempts += 1
+		await otpRecord.save()
+		throw new AuthServiceError('OTP is incorrect', 400)
+	}
+
+	// Nếu OTP đúng, đánh dấu là đã xác thực (có thể xoá luôn)
+	await Otp.deleteMany({ email: normalizedEmail, purpose: 'register' })
 
 	const passwordHash = await bcrypt.hash(password, 10)
 
@@ -209,9 +278,10 @@ const forgotPasswordByEmail = async ({ email }) => {
 		throw new AuthServiceError('Email is not registered', 404)
 	}
 
-	if (user.provider === 'google' && !user.password) {
-		throw new AuthServiceError('This account uses Google login and cannot reset local password', 400)
-	}
+	// Bỏ chặn tài khoản Google chưa có mật khẩu để họ có thể tạo mật khẩu thông qua Quên mật khẩu
+	// if (user.provider === 'google' && !user.password) {
+	// 	throw new AuthServiceError('This account uses Google login and cannot reset local password', 400)
+	// }
 
 const otpCode = createOtpCode()
 	const otpHash = await bcrypt.hash(otpCode, 10)
@@ -449,6 +519,7 @@ const googleLoginOrRegisterByCode = async (authCode, redirectUri) => {
 
 module.exports = {
 	registerLocalUser,
+	sendRegistrationOtp,
 	loginLocalUser,
 	forgotPasswordByEmail,
 	verifyForgotPasswordOtp,

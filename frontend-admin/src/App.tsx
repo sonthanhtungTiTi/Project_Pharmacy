@@ -4,6 +4,7 @@ import io, { Socket } from 'socket.io-client'
 import toast, { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './stores/authStore'
 import { useWebRTCCall } from './hooks/useWebRTCCall'
+import { useFaceDetection } from './hooks/useFaceDetection'
 import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/dashboard'
 import Orders from './pages/Orders'
@@ -15,6 +16,7 @@ import Reports from './pages/Reports'
 import Support from './pages/Support'
 import Consultations from './pages/Consultations'
 import StockCheck from './pages/StockCheck'
+import Profile from './pages/Profile'
 import AdminLayout from './components/layout/AdminLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import VideoCallOverlay from './components/calls/VideoCallOverlay'
@@ -253,6 +255,7 @@ function CallProvider({ children }: { children: React.ReactNode }) {
 
 function App() {
   const { checkAuth, isAuthenticated } = useAuthStore()
+  useFaceDetection()
 
   // Check auth on app load
   useEffect(() => {
@@ -372,6 +375,17 @@ function App() {
               <ProtectedRoute>
                 <AdminLayout>
                   <Consultations />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <Profile />
                 </AdminLayout>
               </ProtectedRoute>
             }

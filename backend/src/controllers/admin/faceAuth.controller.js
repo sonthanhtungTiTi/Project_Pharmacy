@@ -1,4 +1,4 @@
-const faceAuthService = require('../../services/client/faceAuth.service')
+const faceAuthAdminService = require('../../services/admin/faceAuth.service')
 
 const enrollFaceId = async (req, res) => {
 	try {
@@ -12,7 +12,7 @@ const enrollFaceId = async (req, res) => {
 			})
 		}
 
-		await faceAuthService.enrollFaceId(userId, faceDescriptors)
+		await faceAuthAdminService.enrollFaceId(userId, faceDescriptors)
 
 		return res.status(200).json({
 			success: true,
@@ -31,7 +31,7 @@ const enrollFaceId = async (req, res) => {
 const disableFaceId = async (req, res) => {
 	try {
 		const userId = req.auth.userId
-		await faceAuthService.disableFaceId(userId)
+		await faceAuthAdminService.disableFaceId(userId)
 
 		return res.status(200).json({
 			success: true,
@@ -58,7 +58,7 @@ const loginWithFaceId = async (req, res) => {
 			})
 		}
 
-		const data = await faceAuthService.loginWithFaceId(faceDescriptors)
+		const data = await faceAuthAdminService.loginWithFaceId(faceDescriptors)
 
 		return res.status(200).json({
 			success: true,

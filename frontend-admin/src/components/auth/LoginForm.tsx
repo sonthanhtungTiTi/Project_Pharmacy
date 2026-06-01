@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { Link, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import FaceCamera from '../ui/FaceCamera'
+import { loginWithFaceId } from '../../services/faceAuth.service'
+import { useAuthStore } from '../../stores/authStore'
 
 export default function LoginForm() {
   const navigate = useNavigate()
   const { login, loading, error, validationErrors, clearFieldError } = useAuth()
+  const { setUser, setToken } = useAuthStore()
 
   const [formData, setFormData] = useState({
     email: '',
@@ -12,6 +17,7 @@ export default function LoginForm() {
   })
 
   const [showPassword, setShowPassword] = useState(false)
+  const [showFaceCamera, setShowFaceCamera] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -155,6 +161,16 @@ export default function LoginForm() {
         )}
       </button>
 
+      {/* Face ID Login Button */}
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => setShowFaceCamera(true)}
+        className="w-full rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 py-3 text-sm font-semibold text-blue-700 transition-colors mb-6 flex items-center justify-center gap-2"
+      >
+        <span className="text-lg">📷</span> Đăng nhập bằng Face ID
+      </button>
+
       {/* Support Section */}
       <div className="text-center">
         <p className="text-xs text-gray-600 mb-1">Bạn gặp sự cố khi đăng nhập?</p>
@@ -162,6 +178,34 @@ export default function LoginForm() {
           Liên hệ Bộ phận kỹ thuật Hỗ trợ
         </Link>
       </div>
+
+      {showFaceCamera && (
+        <FaceCamera
+          mode="login"
+          onClose={() => setShowFaceCamera(false)}
+          onCapture={async (descriptors) => {
+            try {
+              const data = await loginWithFaceId(descriptors)
+              
+              // Cập nhật state auth sau khi đăng nhập thành công
+              localStorage.setItem('adminAccessToken', data.accessToken)
+              localStorage.setItem('adminUser', JSON.stringify(data.user))
+              
+              setToken(data.accessToken)
+              setUser(data.user)
+              // Cập nhật isAuthenticated trong Zustand bằng cách gọi lại checkAuth
+              useAuthStore.setState({ isAuthenticated: true, user: data.user, token: data.accessToken })
+              
+              toast.success('Đăng nhập Face ID thành công')
+              setShowFaceCamera(false)
+              navigate('/dashboard')
+            } catch (err: any) {
+              toast.error(err.message || 'Đăng nhập Face ID thất bại')
+              setShowFaceCamera(false)
+            }
+          }}
+        />
+      )}
     </form>
   )
 }

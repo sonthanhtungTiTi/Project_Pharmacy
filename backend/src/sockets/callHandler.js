@@ -158,35 +158,48 @@ const logCallToChat = async (io, session, status, reason = '') => {
     if (!session || !session.isChatContext || !session.consultationId) return;
     try {
         const ChatMessage = require('../models/chatMessage.model');
+        const ChatConversation = require('../models/chatConversation.model');
+        
+        const conversation = await ChatConversation.findById(session.consultationId).lean();
+        if (!conversation) return;
+
         const duration = session.acceptedAt ? Math.round((new Date() - session.acceptedAt) / 1000) : 0;
         
-        let content = 'Cuộc gọi video đã kết thúc.';
+        let content = 'Cuộc gọi video';
         if (status === 'missed') {
-            content = 'Cuộc gọi nhỡ.';
+            content = 'Cuộc gọi video nhỡ';
         } else if (status === 'declined') {
-            content = 'Cuộc gọi bị từ chối.';
+            content = 'Đã từ chối cuộc gọi video';
         } else if (status === 'cancelled') {
-            content = 'Cuộc gọi bị hủy.';
+            content = 'Cuộc gọi video bị hủy';
         } else if (status === 'ended') {
             const m = Math.floor(duration / 60);
             const s = duration % 60;
-            content = `Cuộc gọi video đã kết thúc. Thời lượng: ${m} phút ${s} giây.`;
+            content = `Cuộc gọi video ${m > 0 ? m + ' phút ' : ''}${s} giây`;
+        }
+        
+        // Xác định người gọi là client (user) hay admin (staff)
+        let senderType = 'system';
+        if (String(conversation.clientId) === String(session.callerId)) {
+            senderType = 'user';
+        } else if (String(conversation.assignedStaffId) === String(session.callerId)) {
+            senderType = 'admin';
         }
         
         const message = await ChatMessage.create({
             conversationId: session.consultationId,
-            senderType: 'system',
+            senderType: senderType,
+            senderId: session.callerId,
             content: content,
-            meta: { callId: session.callId, status, duration, reason }
+            meta: { isCallLog: true, callId: session.callId, status, duration, reason }
         });
 
-        // Tái sử dụng emitToSupportStaff nếu cần, nhưng đơn giản nhất là emit thẳng vào room
         const room = `chat:conversation:${session.consultationId}`;
         const serializedMessage = {
             id: String(message._id),
             conversationId: String(message.conversationId),
             senderType: message.senderType,
-            senderId: null,
+            senderId: message.senderId,
             senderName: '',
             content: message.content,
             intent: '',

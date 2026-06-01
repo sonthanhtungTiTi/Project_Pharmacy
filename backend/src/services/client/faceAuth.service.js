@@ -35,7 +35,7 @@ const sanitizeUser = (user) => ({
  * FIX 1: Cross-check 3 ảnh phải cùng 1 người trước khi lưu DB.
  * FIX 2: Ghi thêm metadata phiên bản mô hình (faceDescriptorVersion).
  */
-const enrollFaceId = async (userId, imageBuffers) => {
+const enrollFaceId = async (userId, faceDescriptors) => {
 	const user = await User.findById(userId)
 	if (!user) {
 		const error = new Error('Không tìm thấy người dùng')
@@ -43,12 +43,7 @@ const enrollFaceId = async (userId, imageBuffers) => {
 		throw error
 	}
 
-	// Trích xuất 3 vector 128 chiều song song để tối ưu tốc độ
-	const descriptorsArrays = await Promise.all(
-		imageBuffers.map((buffer) => extractDescriptor(buffer))
-	)
-	const descriptors = descriptorsArrays.map((desc) => Array.from(desc))
-	const [d0, d1, d2] = descriptors
+	const [d0, d1, d2] = faceDescriptors
 
 	// ─── FIX 1: Kiểm tra 3 ảnh phải thuộc cùng 1 người ───────────────────
 	// Nếu bất kỳ 2 ảnh nào trong 3 ảnh quá khác nhau (dist > 0.55),
@@ -74,7 +69,7 @@ const enrollFaceId = async (userId, imageBuffers) => {
 	// ─── FIX 2: Ghi metadata phiên bản mô hình ────────────────────────────
 	// faceDescriptorVersion = 2 → dùng TinyFaceDetector (inputSize=416)
 	// Tăng số này khi nâng cấp model trong tương lai để biết cần re-enroll.
-	user.faceDescriptors = descriptors
+	user.faceDescriptors = faceDescriptors
 	user.faceIdEnabled = true
 	user.faceIdEnrolledAt = new Date()
 	user.faceDescriptorVersion = 2
@@ -118,36 +113,14 @@ const disableFaceId = async (userId) => {
  * FIX 3: Tính confidence score + structured logging cho security audit.
  * FIX 4: Liveness check đầy đủ (min & max dist) để chặn ảnh tĩnh và ảnh không nhất quán.
  */
-const loginWithFaceId = async (identity, imageBuffers) => {
-	if (!identity) {
-		const error = new Error('Yêu cầu email hoặc số điện thoại để xác thực')
+const loginWithFaceId = async (faceDescriptors) => {
+	if (!faceDescriptors || faceDescriptors.length < 3) {
+		const error = new Error('Cần 3 vector khuôn mặt để xác thực liveness')
 		error.statusCode = 400
 		throw error
 	}
 
-	if (!imageBuffers || imageBuffers.length < 3) {
-		const error = new Error('Cần 3 ảnh để xác thực liveness')
-		error.statusCode = 400
-		throw error
-	}
-
-	// 1:1 Authentication: Chỉ truy vấn đúng user đó
-	const identityQuery = identity.includes('@')
-		? { email: identity.toLowerCase() }
-		: { phone: identity }
-
-	const user = await User.findOne({ ...identityQuery, faceIdEnabled: true }).select('+faceDescriptors')
-	if (!user || !user.faceDescriptors || user.faceDescriptors.length === 0) {
-		const error = new Error('Tài khoản chưa đăng ký Face ID hoặc không tồn tại')
-		error.statusCode = 404
-		throw error
-	}
-
-	// Trích xuất 3 vector từ 3 ảnh login (chạy song song)
-	const loginDescriptorsArrays = await Promise.all(
-		imageBuffers.map((buf) => extractDescriptor(buf))
-	)
-	const loginDescriptors = loginDescriptorsArrays.map((desc) => Array.from(desc))
+	const loginDescriptors = faceDescriptors
 
 	// ─── FIX 4: ANTI-SPOOFING – Kiểm tra Liveness đầy đủ ────────────────
 	const distStraightLeft  = computeDistance(loginDescriptors[0], loginDescriptors[1])
@@ -160,13 +133,6 @@ const loginWithFaceId = async (identity, imageBuffers) => {
 
 	// Kiểm tra 1: 3 ảnh quá giống nhau → kẻ gian dùng ảnh tĩnh/video đóng băng
 	if (minLivenessDist < 0.18) {
-		console.warn(JSON.stringify({
-			event: 'face_login_rejected',
-			userId: user._id,
-			reason: 'liveness_static_image',
-			minLivenessDist: +minLivenessDist.toFixed(4),
-			timestamp: new Date().toISOString(),
-		}))
 		const error = new Error('Phát hiện ảnh tĩnh. Vui lòng sử dụng khuôn mặt thật để đăng nhập.')
 		error.statusCode = 401
 		throw error
@@ -174,52 +140,66 @@ const loginWithFaceId = async (identity, imageBuffers) => {
 
 	// Kiểm tra 2: 3 ảnh quá khác nhau → không cùng 1 người (camera bị che, hoặc người khác xuất hiện)
 	if (maxLivenessDist > 0.55) {
-		console.warn(JSON.stringify({
-			event: 'face_login_rejected',
-			userId: user._id,
-			reason: 'liveness_inconsistent_faces',
-			maxLivenessDist: +maxLivenessDist.toFixed(4),
-			timestamp: new Date().toISOString(),
-		}))
 		const error = new Error('Ảnh khuôn mặt không nhất quán. Vui lòng thử lại.')
 		error.statusCode = 400
 		throw error
 	}
 	// ──────────────────────────────────────────────────────────────────────
 
-	// ─── CROSS-CHECK 1:N – So khớp mỗi ảnh login với TẤT CẢ ảnh trong DB ──
-	// Lấy khoảng cách ngắn nhất (best match) của từng ảnh login với DB
-	let totalBestDist = 0
-	let allFound = true
+	// Lấy toàn bộ người dùng có kích hoạt Face ID
+	const users = await User.find({ faceIdEnabled: true }).select('+faceDescriptors')
+	if (!users || users.length === 0) {
+		const error = new Error('Chưa có tài khoản nào đăng ký Face ID trong hệ thống')
+		error.statusCode = 404
+		throw error
+	}
 
-	for (const loginDesc of loginDescriptors) {
-		let minDistForThisDesc = Infinity
+	let matchedUser = null
+	let bestAvgDist = Infinity
 
-		for (const storedDesc of user.faceDescriptors) {
-			const d = computeDistance(loginDesc, storedDesc)
-			if (d < minDistForThisDesc) minDistForThisDesc = d
+	// ─── CROSS-CHECK 1:N – So khớp ảnh login với TẤT CẢ ảnh trong DB ──
+	for (const user of users) {
+		if (!user.faceDescriptors || user.faceDescriptors.length === 0) continue
+
+		let totalBestDist = 0
+		let allFound = true
+
+		for (const loginDesc of loginDescriptors) {
+			let minDistForThisDesc = Infinity
+
+			for (const storedDesc of user.faceDescriptors) {
+				const d = computeDistance(loginDesc, storedDesc)
+				if (d < minDistForThisDesc) minDistForThisDesc = d
+			}
+
+			if (!isMatch(minDistForThisDesc)) {
+				allFound = false
+				break
+			}
+
+			totalBestDist += minDistForThisDesc
 		}
 
-		if (!isMatch(minDistForThisDesc)) {
-			allFound = false
-			break
+		if (allFound) {
+			const avgDist = totalBestDist / loginDescriptors.length
+			// Nếu tìm thấy một người có độ khớp tốt hơn thì cập nhật
+			if (avgDist < bestAvgDist) {
+				bestAvgDist = avgDist
+				matchedUser = user
+			}
 		}
-
-		totalBestDist += minDistForThisDesc
 	}
 
 	// ─── FIX 3: Confidence scoring + structured logging ───────────────────
-	const avgDist = allFound ? totalBestDist / loginDescriptors.length : 1.0
-
 	let confidence
-	if (avgDist <= 0.40) confidence = 'high'
-	else if (avgDist <= 0.55) confidence = 'marginal'
+	if (bestAvgDist <= 0.40) confidence = 'high'
+	else if (bestAvgDist <= 0.55) confidence = 'marginal'
 	else confidence = 'fail'
 
 	console.log(JSON.stringify({
 		event: 'face_login_attempt',
-		userId: user._id,
-		avgDist: +avgDist.toFixed(4),
+		matchedUserId: matchedUser ? matchedUser._id : null,
+		bestAvgDist: +bestAvgDist.toFixed(4),
 		confidence,
 		liveness: {
 			minDist: +minLivenessDist.toFixed(4),
@@ -229,21 +209,21 @@ const loginWithFaceId = async (identity, imageBuffers) => {
 	}))
 	// ──────────────────────────────────────────────────────────────────────
 
-	if (!allFound || confidence === 'fail') {
-		const error = new Error('Khuôn mặt không khớp. Vui lòng thử lại.')
+	if (!matchedUser || confidence === 'fail') {
+		const error = new Error('Khuôn mặt không khớp với bất kỳ tài khoản nào. Vui lòng thử lại.')
 		error.statusCode = 401
 		throw error
 	}
 
-	user.lastLoginAt = new Date()
-	await user.save()
+	matchedUser.lastLoginAt = new Date()
+	await matchedUser.save()
 
 	// Clear old chat history upon new login session
-	await chatService.clearClientChat(user._id)
+	await chatService.clearClientChat(matchedUser._id)
 
 	return {
-		accessToken: createAccessToken(user),
-		user: sanitizeUser(user),
+		accessToken: createAccessToken(matchedUser),
+		user: sanitizeUser(matchedUser),
 		// Trả confidence về FE để FE có thể hiển thị cảnh báo nếu là 'marginal'
 		faceConfidence: confidence,
 	}

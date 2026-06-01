@@ -1,5 +1,25 @@
 const authService = require('../../services/client/auth.service')
 
+const sendRegistrationOtp = async (req, res) => {
+  try {
+    const data = await authService.sendRegistrationOtp(req.body)
+
+    return res.status(200).json({
+      success: true,
+      message: 'Registration OTP has been sent to your email',
+      data,
+    })
+  } catch (error) {
+    const statusCode = error.statusCode || 500
+
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Send OTP failed',
+      error: error.message,
+    })
+  }
+}
+
 const register = async (req, res) => {
   try {
     const data = await authService.registerLocalUser(req.body)
@@ -166,6 +186,7 @@ const googleLoginOrRegisterByCode = async (req, res) => {
 }
 
 module.exports = {
+  sendRegistrationOtp,
   register,
   login,
   forgotPassword,

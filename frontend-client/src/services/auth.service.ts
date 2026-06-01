@@ -35,6 +35,21 @@ interface RegisterPayload {
 	email: string
 	phone: string
 	password: string
+	otp: string
+}
+
+interface SendRegistrationOtpPayload {
+	email: string
+}
+
+interface SendRegistrationOtpResponse {
+	success: boolean
+	message: string
+	data?: {
+		maskedEmail: string
+		expiresInMinutes: number
+	}
+	error?: string
 }
 
 interface LoginPayload {
@@ -136,6 +151,24 @@ export const loginWithGoogleCode = async (authCode: string, redirectUri: string)
 	}
 
 	return payload.data
+}
+
+export const sendRegistrationOtp = async (payload: SendRegistrationOtpPayload) => {
+	const response = await fetch(`${API_BASE_URL}/client/auth/register/send-otp`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(payload),
+	})
+
+	const data = (await response.json()) as SendRegistrationOtpResponse
+
+	if (!response.ok || !data.success || !data.data) {
+		throw new Error(data.message || data.error || 'Failed to send OTP')
+	}
+
+	return data.data
 }
 
 export const registerWithForm = async (registerPayload: RegisterPayload) => {

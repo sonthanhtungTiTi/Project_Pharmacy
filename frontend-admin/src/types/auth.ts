@@ -12,6 +12,9 @@ export interface AdminUser {
   avatarUrl?: string
   phone?: string
   department?: string | null
+  address?: string
+  dateOfBirth?: string | null
+  faceIdEnabled?: boolean
   permissions: string[]
   createdAt: string
 }

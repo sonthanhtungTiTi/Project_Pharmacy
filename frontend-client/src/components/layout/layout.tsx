@@ -88,7 +88,8 @@ function PharmacyLayout({
 		localStorage.removeItem('clientAccessToken')
 		localStorage.removeItem('clientUser')
 		setAuthUser(null)
-		window.dispatchEvent(new Event('authChanged'))
+		// Reload lại trang web để cập nhật thông tin (clear mọi state)
+		window.location.href = '/'
 	}
 
 	return (
