@@ -162,6 +162,9 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 				prescriptionImage,
 			})
 
+			sessionStorage.removeItem(CHECKOUT_SELECTED_IDS_KEY)
+			await refreshCart()
+
 			// Nếu chọn Momo, redirect đến trang thanh toán Momo
 			if (paymentMethod === 'momo') {
 				try {
@@ -175,7 +178,6 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 					)
 
 					if (momoResponse.success && momoResponse.payUrl) {
-						sessionStorage.removeItem(CHECKOUT_SELECTED_IDS_KEY)
 						// Redirect to Momo
 						window.location.href = momoResponse.payUrl
 						return
@@ -208,7 +210,6 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 					})
 
 					if (vnpayResponse.success && vnpayResponse.payUrl) {
-						sessionStorage.removeItem(CHECKOUT_SELECTED_IDS_KEY)
 						window.location.href = vnpayResponse.payUrl
 						return
 					}
@@ -231,8 +232,6 @@ function CheckoutPage({ onBackToCart, onBackHome }: CheckoutPageProps) {
 				}
 			}
 
-			sessionStorage.removeItem(CHECKOUT_SELECTED_IDS_KEY)
-			await refreshCart()
 			setSubmitSuccess(`Đặt hàng thành công. Mã đơn hàng: ${order.orderCode}`)
 		} catch (apiError) {
 			setSubmitError(apiError instanceof Error ? apiError.message : 'Không thể thanh toan')

@@ -209,15 +209,13 @@ const checkoutFromCart = async (userId, { addressId, note, paymentMethod = 'cod'
 		}
 	}
 
-	// Clear items from cart only for COD. For online payments, items are kept until payment success.
-	if (paymentMethod === 'cod') {
-		if (shouldCheckoutSelectedItems) {
-			cart.items = cart.items.filter((item) => !selectedProductIdSet.has(String(item.productId)))
-		} else {
-			cart.items = []
-		}
-		await cart.save()
+	// Clear items from cart after checkout, regardless of payment method
+	if (shouldCheckoutSelectedItems) {
+		cart.items = cart.items.filter((item) => !selectedProductIdSet.has(String(item.productId)))
+	} else {
+		cart.items = []
 	}
+	await cart.save()
 
 	return serializeOrder(orderDoc)
 }

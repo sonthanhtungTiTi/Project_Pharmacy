@@ -145,8 +145,7 @@ function Header({
 
 					<div className="flex flex-wrap items-center gap-4 pb-4 pt-2">
 <a href="/" className="flex h-8 w-[110px] items-center text-2xl font-black leading-none">
-						<p><img src="https://res.cloudinary.com/devdnfoyh/image/upload/v1773639699/logo_ms0x2m.png" alt="" className="h-full w-full object-contain" /></p>
-							<span className="ml-1 text-[#dfffa1]"></span>
+							<p><img src="https://res.cloudinary.com/devdnfoyh/image/upload/v1773639699/logo_ms0x2m.png" alt="" className="h-full w-full object-contain overflow-hidden rounded-full border border-white/20" /></p>
 						</a>
 
 						<div ref={searchContainerRef} className="relative min-w-[320px] flex-1">

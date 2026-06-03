@@ -77,11 +77,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             }`}
         >
           <div
-            className={`flex items-center font-bold text-xl text-blue-600 ${isSidebarCollapsed ? 'justify-center' : 'gap-2'
+            className={`flex items-center font-bold text-xl text-blue-600 ${isSidebarCollapsed ? 'justify-center' : 'gap-3'
               }`}
           >
-            <FontAwesomeIcon icon={faCapsules} className="text-lg" />
-            {!isSidebarCollapsed && <span>Clinical Azure</span>}
+            <img 
+              src="https://res.cloudinary.com/devdnfoyh/image/upload/v1773639699/logo_ms0x2m.png" 
+              alt="Pharmacy Logo" 
+              className="h-10 w-10 min-w-10 rounded-full border border-gray-200 object-cover shadow-sm"
+            />
+            {!isSidebarCollapsed && <span className="truncate">Clinical Azure</span>}
           </div>
           {!isSidebarCollapsed && <p className="mt-1 text-xs text-gray-500">PHARMACY ADMIN</p>}
         </div>

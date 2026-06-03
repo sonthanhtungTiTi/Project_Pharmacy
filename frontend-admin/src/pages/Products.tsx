@@ -85,7 +85,7 @@ export default function ProductsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
             <FontAwesomeIcon icon={faPills} className="text-blue-600" />
-            Quản Lý Sản Phẩm
+            {/* Quản Lý Sản Phẩm */}
           </h1>
           <p className="text-gray-500 text-sm mt-1">Quản lý danh sách thuốc và sản phẩm trong hệ thống</p>
         </div>
@@ -164,11 +164,10 @@ export default function ProductsPage() {
                     <td className="py-3 px-4 text-xs text-gray-600">{product.categoryName}</td>
                     <td className="py-3 px-4 text-right font-semibold text-gray-900 text-sm">{formatCurrency(product.price)}</td>
                     <td className="py-3 px-4 text-center">
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                        product.totalStock === 0 ? 'bg-red-100 text-red-700' :
+                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${product.totalStock === 0 ? 'bg-red-100 text-red-700' :
                         product.totalStock <= 10 ? 'bg-orange-100 text-orange-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
+                          'bg-green-100 text-green-700'
+                        }`}>
                         {product.totalStock}
                       </span>
                     </td>
