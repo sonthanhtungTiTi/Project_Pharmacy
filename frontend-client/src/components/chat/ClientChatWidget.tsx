@@ -19,6 +19,8 @@ interface ClientChatWidgetProps {
 	socket: Socket | null
 	isOpen: boolean
 	onClose: () => void
+	initialData?: { message?: string; imageBase64?: string } | null
+	onInitialDataProcessed?: () => void
 }
 
 type AckPayload<T> = {
@@ -176,7 +178,7 @@ const openProductDetailFromChat = (productId: string, productUrl?: string) => {
 	window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChatWidgetProps) {
+export default function ClientChatWidget({ socket, isOpen, onClose, initialData, onInitialDataProcessed }: ClientChatWidgetProps) {
 	const [conversation, setConversation] = useState<ChatConversation | null>(null)
 	const [messages, setMessages] = useState<ChatMessage[]>([])
 	const [draft, setDraft] = useState('')
@@ -421,37 +423,43 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 		bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
 	}, [isOpen, messages, isBotTyping])
 
-	const handleSendMessage = async () => {
+	const handleSendMessage = async (customContent?: string, customFile?: File) => {
 		if (!conversation || sending || uploadingImage) {
 			return
 		}
 
-		const content = draft.trim()
-		if (!content && !imageFile) {
+		const content = customContent !== undefined ? customContent : draft.trim()
+		const currentFile = customFile !== undefined ? customFile : imageFile
+		
+		if (!content && !currentFile) {
 			return
 		}
 
-		setDraft('')
+		if (customContent === undefined) {
+			setDraft('')
+		}
 		setSending(true)
 		setError(null)
 
 		const pendingContent = content
 		let messageMeta: Record<string, unknown> | null = null
 
-		if (imageFile) {
+		if (currentFile) {
 			setUploadingImage(true)
 			try {
-				const uploaded = await uploadChatImage(imageFile)
+				const uploaded = await uploadChatImage(currentFile)
 				messageMeta = {
 					imageUrl: uploaded.url,
 					imagePublicId: uploaded.publicId,
-					imageName: imageFile.name,
-					imageSize: imageFile.size,
+					imageName: currentFile.name,
+					imageSize: currentFile.size,
 				}
 			} catch (uploadError) {
 				const uploadMessage = uploadError instanceof Error ? uploadError.message : 'Không thể tải ảnh'
 				setError(uploadMessage)
-				setDraft(pendingContent)
+				if (customContent === undefined) {
+					setDraft(pendingContent)
+				}
 				setUploadingImage(false)
 				setSending(false)
 				return
@@ -499,7 +507,7 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 				setIsBotTyping(false)
 			}
 
-			if (messageMeta) {
+			if (messageMeta && customFile === undefined) {
 				clearImage()
 			}
 		} catch (sendError) {
@@ -509,12 +517,36 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 
 			const message = sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn'
 			setError(message)
-			setDraft(pendingContent)
+			if (customContent === undefined) {
+				setDraft(pendingContent)
+			}
 			setIsBotTyping(false)
 		} finally {
 			setSending(false)
 		}
 	}
+
+	useEffect(() => {
+		if (conversation && initialData && !sending && !uploadingImage) {
+			const processInitialData = async () => {
+				let file: File | undefined = undefined
+				if (initialData.imageBase64) {
+					try {
+						const res = await fetch(initialData.imageBase64)
+						const blob = await res.blob()
+						file = new File([blob], 'product-image.jpg', { type: blob.type })
+					} catch (e) {
+						console.error('Failed to convert base64 to file', e)
+					}
+				}
+				await handleSendMessage(initialData.message || '', file)
+				if (onInitialDataProcessed) {
+					onInitialDataProcessed()
+				}
+			}
+			void processInitialData()
+		}
+	}, [conversation, initialData])
 
 	const handleRequestHuman = async () => {
 		if (!conversation || requestingHuman) {
@@ -710,7 +742,7 @@ export default function ClientChatWidget({ socket, isOpen, onClose }: ClientChat
 														>
 															<div className="flex items-center gap-2">
 																{isCallLog && <Video className={`h-5 w-5 ${isUser ? 'text-blue-600' : 'text-gray-600'}`} />}
-																<p className="text-sm leading-5 font-medium">{message.content}</p>
+																<p className="text-sm leading-5 font-medium">{String(message.content || '')}</p>
 															</div>
 															{imageUrl && (
 																<button

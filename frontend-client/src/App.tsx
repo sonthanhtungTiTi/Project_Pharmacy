@@ -101,6 +101,7 @@ function App() {
 
   // ==================== CALL TARGET SELECTOR ====================
   const [isChatWidgetOpen, setIsChatWidgetOpen] = useState(false)
+  const [chatInitialData, setChatInitialData] = useState<{message?: string, imageBase64?: string} | null>(null)
 
   // ==================== SOCKET.IO CONNECTION ====================
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -404,7 +405,11 @@ function App() {
   }
 
   useEffect(() => {
-    const handleOpenChatbot = () => {
+    const handleOpenChatbot = (event: Event) => {
+      const customEvent = event as CustomEvent
+      if (customEvent.detail) {
+        setChatInitialData(customEvent.detail)
+      }
       setIsChatWidgetOpen(true)
     }
 
@@ -450,6 +455,8 @@ function App() {
         socket={socket}
         isOpen={isChatWidgetOpen}
         onClose={() => setIsChatWidgetOpen(false)}
+        initialData={chatInitialData}
+        onInitialDataProcessed={() => setChatInitialData(null)}
       />
     </>
   )

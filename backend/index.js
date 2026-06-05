@@ -76,24 +76,7 @@ peerServer.on('connection', (client) => {
 peerServer.on('disconnect', (client) => {
     console.log(`[PeerJS] Client disconnected: ${client.getId()}`)
 })
-// ==================== FIX WEBSOCKET CONFLICT ====================
-// Tránh lỗi "Invalid frame header" do Socket.IO và PeerJS đụng độ tranh giành sự kiện "upgrade"
-const upgradeListeners = server.listeners('upgrade').slice(0)
-server.removeAllListeners('upgrade')
-
-server.on('upgrade', (req, socket, head) => {
-    const pathname = req.url.split('?')[0]
-    if (pathname.startsWith('/socket.io')) {
-        // Cho Socket.io xử lý trực tiếp, KHÔNG cho PeerJS đụng vào
-        io.engine.handleUpgrade(req, socket, head)
-    } else if (pathname.startsWith('/myapp')) {
-        // Cho PeerJS xử lý (do destroyUpgrade=false nên Socket.io lắng nghe cũng ko sao)
-        upgradeListeners.forEach((listener) => listener(req, socket, head))
-    } else {
-        socket.destroy()
-    }
-})
-
+// Removed custom upgrade listener as destroyUpgrade: false on Socket.IO is sufficient.
 
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
