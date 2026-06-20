@@ -1,4 +1,4 @@
-# 🏥 Project Pharmacy - Hệ Thống Quản Lý Nhà Thuốc & Tư Vấn Trực Tuyến
+<img width="930" height="528" alt="image" src="https://github.com/user-attachments/assets/e71dffdf-fad7-4cce-9214-53986b82e015" /><img width="941" height="556" alt="image" src="https://github.com/user-attachments/assets/cf9c5af8-6b92-4d77-9dd0-2722257d6b64" /># 🏥 Project Pharmacy - Hệ Thống Quản Lý Nhà Thuốc & Tư Vấn Trực Tuyến
 
 Chào mừng bạn đến với **Project Pharmacy**! Đây là một hệ thống toàn diện được thiết kế để quản lý nhà thuốc, bán hàng trực tuyến và cung cấp dịch vụ tư vấn sức khỏe từ xa với dược sĩ/bác sĩ. 
 
@@ -17,6 +17,9 @@ Dự án được xây dựng theo kiến trúc **Monorepo**, chia thành 3 phâ
 - **Thanh Toán Đa Dạng:** Tích hợp các cổng thanh toán trực tuyến hàng đầu: **Momo** và **VNPAY**.
 - **Tư Vấn Sức Khỏe:** Đặt lịch tư vấn với dược sĩ, trò chuyện trực tiếp (Chat Realtime), và tham gia **Video Call** (WebRTC).
 - **Quản Lý Cá Nhân:** Theo dõi lịch sử khám bệnh, quản lý địa chỉ giao hàng, sổ tay thuốc gia đình.
+
+SƠ ĐỒ MÔ HÌNH HÁO CÁC YÊU CẦU:
+![Uploading image.png…]()
 
 ### 💼 Dành Cho Nhân Viên & Quản Lý (Web Admin)
 - **Phân Quyền Chi Tiết (RBAC):** Hệ thống roles linh hoạt (Admin, Pharmacist, Manager, Sales Staff, Warehouse Staff).
