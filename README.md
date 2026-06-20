@@ -1,4 +1,4 @@
-<img width="930" height="528" alt="image" src="https://github.com/user-attachments/assets/e71dffdf-fad7-4cce-9214-53986b82e015" /><img width="941" height="556" alt="image" src="https://github.com/user-attachments/assets/cf9c5af8-6b92-4d77-9dd0-2722257d6b64" /># 🏥 Project Pharmacy - Hệ Thống Quản Lý Nhà Thuốc & Tư Vấn Trực Tuyến
+# 🏥 Project Pharmacy - Hệ Thống Quản Lý Nhà Thuốc & Tư Vấn Trực Tuyến
 
 Chào mừng bạn đến với **Project Pharmacy**! Đây là một hệ thống toàn diện được thiết kế để quản lý nhà thuốc, bán hàng trực tuyến và cung cấp dịch vụ tư vấn sức khỏe từ xa với dược sĩ/bác sĩ. 
 
@@ -6,7 +6,7 @@ Dự án được xây dựng theo kiến trúc **Monorepo**, chia thành 3 phâ
 - ⚙️ **Backend API**: Xử lý logic, database và realtime.
 - 🛍️ **Frontend Client**: Giao diện dành cho khách hàng mua thuốc và nhận tư vấn.
 - 📊 **Frontend Admin**: Giao diện quản trị dành cho nhân viên và quản lý.
-
+<img width="930" height="528" alt="image" src="https://github.com/user-attachments/assets/e71dffdf-fad7-4cce-9214-53986b82e015" />
 ---
 
 ## 🌟 Tính Năng Nổi Bật
